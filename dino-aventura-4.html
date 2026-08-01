@@ -1,0 +1,3571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Dino Aventura TV</title>
+<style>
+  :root{ --crema:#FFF3D6; --ambar:#F2A93B; --fresa:#E0663A; --seguro:4.5vmin; }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#143424;cursor:none;
+    font-family:"Baloo 2","Trebuchet MS",Verdana,system-ui,sans-serif;color:var(--crema);
+    user-select:none;-webkit-user-select:none;overscroll-behavior:none;
+    touch-action:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+  canvas#lienzo{display:block;width:100%;height:100%;outline:none;
+    touch-action:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+
+  /* ---- HUD dentro de la zona segura del televisor ---- */
+  #hud{position:fixed;top:var(--seguro);left:var(--seguro);right:var(--seguro);
+       display:flex;gap:20px;align-items:flex-start;pointer-events:none;}
+  .barras{display:flex;flex-direction:column;gap:10px;flex:0 1 380px;min-width:240px;}
+  .barra{height:36px;border-radius:19px;background:rgba(6,30,20,.6);
+         border:4px solid rgba(255,243,214,.85);position:relative;overflow:hidden;display:flex;align-items:center;}
+  .relleno{position:absolute;left:0;top:0;bottom:0;width:100%;transition:width .18s linear;}
+  #barHambre .relleno{background:linear-gradient(180deg,#8FE07A,#4FA33F);}
+  #barSed .relleno{background:linear-gradient(180deg,#7FE0F5,#2C86A8);}
+  .barra span{position:relative;z-index:2;padding-left:14px;font-size:21px;font-weight:700;
+              text-shadow:0 2px 0 rgba(6,30,20,.7);}
+  .barra.baja{animation:pulso .6s ease-in-out infinite alternate;}
+  @keyframes pulso{from{border-color:rgba(255,243,214,.85)}to{border-color:var(--fresa)}}
+  #marcador{margin-left:auto;text-align:right;line-height:1.12;text-shadow:0 4px 0 rgba(6,30,20,.7);}
+  #puntos{font-size:52px;font-weight:800;color:var(--ambar);}
+  #nivel{font-size:21px;opacity:.92;}
+  #etapa{font-size:21px;opacity:.92;color:#BFE9A6;}
+
+  /* ---- indicador de defensa (no se toca, se usa con OK) ---- */
+  #defensa{position:fixed;right:var(--seguro);bottom:var(--seguro);
+           width:140px;height:140px;border-radius:50%;border:6px solid var(--crema);
+           background:rgba(226,120,40,.78);position:fixed;overflow:hidden;
+           display:flex;align-items:center;justify-content:center;pointer-events:none;
+           font-size:19px;font-weight:800;line-height:1.12;text-align:center;padding:0 12px;
+           color:#fff;text-shadow:0 3px 0 rgba(80,30,5,.75);}
+  #defensa .carga{position:absolute;left:0;right:0;bottom:0;background:rgba(10,30,20,.62);height:0%;
+                  transition:height .1s linear;}
+  #defensa .txt{position:relative;z-index:2;}
+  #defensa.listo{box-shadow:0 0 0 7px rgba(242,169,59,.5);}
+
+  /* ---- pistas de mando ---- */
+  #pistas{position:fixed;left:var(--seguro);bottom:var(--seguro);display:flex;gap:30px;
+          font-size:21px;align-items:center;pointer-events:none;text-shadow:0 3px 0 rgba(6,30,20,.7);}
+  .tecla{display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:40px;
+         padding:0 13px;border-radius:11px;background:rgba(255,243,214,.92);color:#173021;
+         font-weight:800;font-size:19px;margin-right:11px;text-shadow:none;}
+  body.enMenu #hud, body.enMenu #defensa, body.enMenu #pistas{display:none;}
+
+  #aviso{position:fixed;left:50%;top:16%;transform:translateX(-50%);background:rgba(6,30,20,.85);
+         border:4px solid var(--ambar);padding:14px 32px;border-radius:24px;font-size:30px;font-weight:700;
+         opacity:0;transition:opacity .3s;pointer-events:none;max-width:80vw;text-align:center;}
+  #aviso.ver{opacity:1;}
+
+  /* ---- pantallas ---- */
+  .pantalla{position:fixed;top:0;left:0;right:0;bottom:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;
+            justify-content:center;gap:22px;text-align:center;padding:var(--seguro);z-index:10;
+            background:radial-gradient(circle at 50% 30%, #2E6B4C 0%, #10281B 78%);}
+  .pantalla.oculta{display:none;}
+  .pantalla h1{font-size:58px;font-size:clamp(42px,6.4vw,86px);margin:0;color:var(--ambar);letter-spacing:2px;
+               text-shadow:0 7px 0 #8C5A12, 0 11px 20px rgba(0,0,0,.45);}
+  .pantalla p{margin:0;font-size:24px;font-size:clamp(19px,1.9vw,28px);max-width:60ch;line-height:1.5;opacity:.95;}
+  .jugar{padding:20px 58px;border:none;border-radius:34px;background:var(--ambar);
+         color:#4A2E05;font-size:30px;font-weight:800;font-family:inherit;
+         box-shadow:0 9px 0 #A9741C;letter-spacing:1px;}
+  .menu{display:flex;flex-direction:column;gap:16px;align-items:center;}
+  .menu .jugar{margin-bottom:16px;}
+  .menu .jugar{min-width:440px;}
+  .gris{background:#7C6B58;color:#FFF3D6;box-shadow:0 9px 0 #4A3E31;}
+
+  /* ---- la pausa tiene ocho botones: en una sola columna no cabía en el
+     televisor (unos 1100px de alto contra 984px útiles en 1080p) ---- */
+  #pausa{justify-content:flex-start;overflow-y:auto;gap:10px;}
+  #pausa h1{font-size:clamp(26px,3.4vw,44px);text-shadow:0 5px 0 #8C5A12;}
+  #pausa p{font-size:clamp(14px,1.3vw,19px);}
+  #pausa .menu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+               gap:11px 16px;width:min(860px,92vw);}
+  #pausa .menu .jugar{min-width:0;width:100%;margin-bottom:0;letter-spacing:0;
+                      padding:12px 14px;font-size:clamp(15px,1.45vw,22px);
+                      box-shadow:0 6px 0 #A9741C;}
+  #pausa .menu .gris{box-shadow:0 6px 0 #4A3E31;}
+  #pausa .menu #btnSeguir{grid-column:1 / -1;}
+
+  /* ---- foco del mando ---- */
+  .enfocado{outline:6px solid var(--ambar);outline-offset:6px;
+            box-shadow:0 0 34px rgba(242,169,59,.55);}
+  .jugar.enfocado{background:#FFD37A;transform:translateY(-3px);}
+  button:focus{outline:none;}
+
+  /* ---- selección: dibujo arriba, texto abajo ---- */
+  #eleccion{justify-content:flex-start;gap:10px;overflow-y:auto;}
+  #eleccion h1{font-size:40px;font-size:clamp(30px,4vw,52px);}
+  .grupo{width:100%;max-width:1500px;}
+  .grupo h2{font-size:23px;margin:20px 0 12px;text-align:left;letter-spacing:3px;text-transform:uppercase;
+            opacity:.85;border-bottom:3px solid rgba(255,243,214,.25);padding-bottom:8px;}
+  .rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:20px;}
+  .carta{background:rgba(8,34,22,.55);border:4px solid rgba(255,243,214,.28);border-radius:24px;
+         padding:0 0 14px;display:flex;flex-direction:column;align-items:stretch;
+         font-family:inherit;color:var(--crema);overflow:hidden;}
+  .carta.sel{border-color:var(--ambar);background:rgba(64,44,12,.75);}
+  .marco{width:100%;height:172px;background:linear-gradient(180deg,#3E7C55 0%,#2A5A3C 100%);
+         display:flex;align-items:flex-end;justify-content:center;border-bottom:4px solid rgba(255,243,214,.22);}
+  .marco canvas{display:block;width:100%;height:172px;}
+  .datos{padding:12px 12px 0;display:flex;flex-direction:column;align-items:center;gap:7px;}
+  .datos .nom{font-size:24px;font-weight:800;line-height:1.15;}
+  .datos .def{font-size:16px;opacity:.85;line-height:1.3;}
+  .etiq{font-size:13px;font-weight:800;letter-spacing:1.5px;padding:3px 13px;border-radius:11px;}
+  .herb{background:#4FA33F;color:#08240F;}
+  .carn{background:#E0663A;color:#2B0D03;}
+  @media (prefers-reduced-motion: reduce){ .barra.baja{animation:none;border-color:var(--fresa);} }
+
+  /* ---- claves de partida ---- */
+  #claveCaja{background:rgba(8,34,22,.6);border:4px solid var(--ambar);border-radius:22px;
+             padding:14px 30px;display:flex;flex-direction:column;align-items:center;gap:4px;}
+  #claveCaja.oculta{display:none;}
+  .claveTitulo{font-size:18px;opacity:.85;letter-spacing:2px;text-transform:uppercase;}
+  .claveTexto{font-family:"Courier New",monospace;font-weight:700;letter-spacing:6px;
+              font-size:44px;color:var(--ambar);text-shadow:0 4px 0 rgba(6,30,20,.7);}
+  .claveNota{font-size:16px;opacity:.8;}
+  #teclado{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;max-width:760px;}
+  .tec{width:62px;height:56px;border-radius:12px;border:3px solid rgba(255,243,214,.35);
+       background:rgba(8,34,22,.6);color:var(--crema);font-family:inherit;font-size:26px;
+       font-weight:800;display:flex;align-items:center;justify-content:center;}
+  .tec.ancha{width:150px;font-size:18px;letter-spacing:1px;}
+  .tec.sel, .tec.enfocado{border-color:var(--ambar);background:rgba(64,44,12,.8);}
+
+  /* ================= ajustes para pantalla táctil ================= */
+  :root{ --seguro:2.6vmin; }
+  html,body{cursor:auto;}
+  .pantalla{gap:14px;}
+  .pantalla h1{font-size:34px;font-size:clamp(28px,7.5vw,54px);}
+  .pantalla p{font-size:16px;font-size:clamp(14px,3.9vw,19px);}
+  .jugar{padding:14px 34px;font-size:22px;border-radius:26px;box-shadow:0 7px 0 #A9741C;}
+  .menu .jugar{min-width:280px;margin-bottom:12px;}
+  .gris{box-shadow:0 7px 0 #4A3E31;}
+  .grupo h2{font-size:16px;margin:12px 0 8px;}
+  .rejilla{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:11px;}
+  .carta{border-width:3px;border-radius:18px;}
+  .marco{height:112px;border-bottom-width:3px;}
+  .marco canvas{height:112px;}
+  .datos{padding:8px 8px 0;gap:4px;}
+  .datos .nom{font-size:15px;}
+  .datos .def{font-size:11.5px;}
+  .etiq{font-size:10px;padding:2px 9px;}
+  #eleccion h1{font-size:26px;font-size:clamp(22px,5.8vw,38px);}
+  .enfocado{outline:none;box-shadow:none;}
+  .carta.enfocado{outline:none;}
+  #zonaDefensa,#zonaPausa{position:fixed;background:transparent;border:none;padding:0;
+    z-index:6;-webkit-tap-highlight-color:transparent;}
+  body.enMenu #zonaDefensa, body.enMenu #zonaPausa{display:none;}
+  .claveTexto{font-size:30px;letter-spacing:4px;}
+  .claveTitulo{font-size:14px;}
+  .claveNota{font-size:13px;}
+  #claveCaja{padding:11px 18px;border-width:3px;}
+  #teclado{gap:7px;max-width:96vw;}
+  .tec{width:46px;height:44px;font-size:20px;border-width:2px;border-radius:10px;}
+  .tec.ancha{width:106px;font-size:14px;}
+</style>
+</head>
+<body>
+
+<canvas id="lienzo"></canvas>
+
+
+<button id="zonaDefensa" aria-label="Usar defensa"></button>
+<button id="zonaPausa" aria-label="Pausar"></button>
+
+<div class="pantalla" id="inicio">
+  <h1>DINO AVENTURA</h1>
+  <p>Naces de un huevo y creces hasta ser un dinosaurio adulto. Come lo que le toca a tu especie, bebe agua y escapa de los depredadores de tierra, aire y agua.</p>
+  <p>Muévete con la cruceta del control. <strong>OK</strong> usa la defensa de tu especie y si mantienes <strong>OK</strong> dos segundos se pausa.</p>
+  <button class="jugar enfocable" id="btnElegir">ELEGIR DINOSAURIO</button>
+  <button class="jugar gris enfocable" id="btnContinuar">CONTINUAR CON CLAVE</button>
+  <button class="jugar gris enfocable" id="btnDificultadInicio">DIFICULTAD: NORMAL</button>
+</div>
+
+<div class="pantalla oculta" id="eleccion">
+  <h1>ELIGE TU DINOSAURIO</h1>
+  <p style="opacity:.8">Muévete con la cruceta y pulsa <strong>OK</strong> para nacer</p>
+  <div class="grupo"><h2>Herbívoros · comen plantas</h2><div class="rejilla" id="listaHerb"></div></div>
+  <div class="grupo"><h2>Carnívoros · comen carne</h2><div class="rejilla" id="listaCarn"></div></div>
+  <div style="height:var(--seguro)"></div>
+</div>
+
+<div class="pantalla oculta" id="pausa">
+  <h1>PAUSA</h1>
+  <p id="pausaTexto"></p>
+  <div class="menu">
+    <button class="jugar enfocable" id="btnSeguir">SEGUIR</button>
+    <button class="jugar gris enfocable" id="btnMusica">MÚSICA: SÍ</button>
+    <button class="jugar gris enfocable" id="btnEfectos">EFECTOS: SÍ</button>
+    <button class="jugar gris enfocable" id="btnGraficos">GRÁFICOS: ALTOS</button>
+    <button class="jugar gris enfocable" id="btnGuardar">GUARDAR PARTIDA</button>
+    <button class="jugar gris enfocable" id="btnDificultad">DIFICULTAD: NORMAL</button>
+    <button class="jugar gris enfocable" id="btnCambiar">CAMBIAR DINOSAURIO</button>
+    <button class="jugar gris enfocable" id="btnMenu">VOLVER AL MENÚ</button>
+  </div>
+</div>
+
+
+<div class="pantalla oculta" id="guardar">
+  <h1>GUARDAR PARTIDA</h1>
+  <p>Elige una ranura y anota la clave para seguir después en cualquier dispositivo.</p>
+  <div class="menu">
+    <button class="jugar enfocable" data-ranura="0">RANURA 1</button>
+    <button class="jugar enfocable" data-ranura="1">RANURA 2</button>
+    <button class="jugar enfocable" data-ranura="2">RANURA 3</button>
+  </div>
+  <div id="claveCaja" class="oculta">
+    <div class="claveTitulo" id="claveTitulo">Partida 1</div>
+    <div class="claveTexto" id="claveTexto">---</div>
+    <div class="claveNota" id="claveNota">Anótala en un papel</div>
+  </div>
+  <button class="jugar gris enfocable" id="btnVolverGuardar">VOLVER</button>
+</div>
+
+<div class="pantalla oculta" id="clave">
+  <h1>CONTINUAR PARTIDA</h1>
+  <p>Escribe la clave que anotaste</p>
+  <div class="claveTexto" id="claveEntrada">___-___-___</div>
+  <div class="claveNota" id="claveError">&nbsp;</div>
+  <div id="teclado"></div>
+  <div class="menu" style="margin-top:8px">
+    <button class="jugar gris enfocable" id="btnVolverClave">VOLVER</button>
+  </div>
+</div>
+
+<div class="pantalla oculta" id="final">
+  <h1>¡NACIÓ TU CRÍA!</h1>
+  <p id="finTexto"></p>
+  <div class="menu">
+    <button class="jugar enfocable" id="btnFinMenu">VOLVER AL MENÚ</button>
+    <button class="jugar gris enfocable" id="btnFinSeguir">SEGUIR JUGANDO</button>
+  </div>
+</div>
+
+<div class="pantalla oculta" id="territorio">
+  <h1 id="terrNombre"></h1>
+  <p id="terrTexto"></p>
+  <button class="jugar enfocable" id="btnSeguirTerr">CONTINUAR</button>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* =========================================================
+   ARTE — dinosaurios dibujados con contorno, sombreado,
+   extremidades articuladas y textura propia de cada especie.
+   Sistema de coordenadas: patas en y=0, mirando a la derecha.
+   ========================================================= */
+
+/* ---------- color ---------- */
+function _rgb(h){ return [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)]; }
+function _dosDig(n){ const h = n.toString(16); return h.length < 2 ? "0" + h : h; }
+function _hex(r,g,b){ return "#" + _dosDig(Math.round(Math.max(0,Math.min(255,r)))) + _dosDig(Math.round(Math.max(0,Math.min(255,g)))) + _dosDig(Math.round(Math.max(0,Math.min(255,b)))); }
+function mezcla(a, b, t){
+  if (typeof a !== "string" || a[0] !== "#") return a;   // ya es un degradado
+  const A = _rgb(a), B = _rgb(b);
+  return _hex(A[0]+(B[0]-A[0])*t, A[1]+(B[1]-A[1])*t, A[2]+(B[2]-A[2])*t);
+}
+const claro  = (c,t) => mezcla(c, "#FFFFFF", t);
+const oscuro = (c,t) => mezcla(c, "#1A1208", t);
+
+/* ---------- trazos ---------- */
+function pluma(c, base){ return oscuro(base, .58); }
+
+function relleno(c, base, y0, y1){
+  const g = c.createLinearGradient(0, y0, 0, y1);
+  g.addColorStop(0, claro(base, .26));
+  g.addColorStop(.5, base);
+  g.addColorStop(1, oscuro(base, .26));
+  return g;
+}
+// dibuja el camino actual: relleno + contorno
+function pintar(c, fill, linea, gr){
+  if (fill){ c.fillStyle = fill; c.fill(); }
+  if (linea){ c.strokeStyle = linea; c.lineWidth = gr === undefined ? 3 : gr; c.lineJoin = "round"; c.lineCap = "round"; c.stroke(); }
+}
+// miembro de dos trazos: contorno grueso debajo, color encima
+function hueso(c, x1, y1, x2, y2, w, fill, linea){
+  c.lineCap = "round";
+  c.strokeStyle = linea; c.lineWidth = w + 5;
+  c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke();
+  c.strokeStyle = fill; c.lineWidth = w;
+  c.beginPath(); c.moveTo(x1,y1); c.lineTo(x2,y2); c.stroke();
+}
+function bolita(c, x, y, r, fill, linea){
+  c.beginPath(); c.arc(x, y, r, 0, 6.3);
+  pintar(c, fill, linea, 3);
+}
+function garra(c, x, y, ang, largo, col, linea){
+  c.beginPath();
+  c.moveTo(x, y - largo*.28);
+  c.quadraticCurveTo(x + Math.cos(ang)*largo*.8, y + Math.sin(ang)*largo*.5, x + Math.cos(ang)*largo, y + Math.sin(ang)*largo);
+  c.quadraticCurveTo(x + Math.cos(ang)*largo*.5, y + Math.sin(ang)*largo*.2 + largo*.25, x, y + largo*.24);
+  c.closePath();
+  pintar(c, col, linea, 2);
+}
+
+/* ---------- texturas (se aplican recortadas al cuerpo) ---------- */
+function conRecorte(c, camino, fn){
+  if (typeof DETALLE !== "undefined" && !DETALLE) return;
+  c.save(); c.beginPath(); camino(c); c.clip(); fn(c); c.restore();
+}
+function rayas(c, x0, x1, yTop, yBot, n, col, ancho, inclina){
+  c.strokeStyle = col; c.lineWidth = ancho; c.lineCap = "round";
+  for (let i = 0; i < n; i++){
+    const x = x0 + (x1-x0) * (i/(n-1||1));
+    c.beginPath();
+    c.moveTo(x, yTop);
+    c.quadraticCurveTo(x + inclina*.5, (yTop+yBot)/2, x + inclina, yBot);
+    c.stroke();
+  }
+}
+function motas(c, cx, cy, rx, ry, n, col, sem){
+  c.fillStyle = col;
+  for (let i = 0; i < n; i++){
+    const a = i * 2.399 + sem, r = Math.sqrt((i+.5)/n);
+    const x = cx + Math.cos(a) * rx * r, y = cy + Math.sin(a) * ry * r;
+    const t = 2.4 + (i % 3) * 1.5;
+    c.beginPath(); c.ellipse(x, y, t, t*.78, a, 0, 6.3); c.fill();
+  }
+}
+function escamas(c, x0, x1, y0, y1, col){
+  c.strokeStyle = col; c.lineWidth = 1.6;
+  for (let y = y0; y < y1; y += 8){
+    for (let x = x0; x < x1; x += 9){
+      c.beginPath(); c.arc(x + ((Math.round(y/8)%2) ? 4.5 : 0), y, 4, Math.PI, 0);
+      c.stroke();
+    }
+  }
+}
+
+/* ---------- crecimiento: los adornos salen a medida que el dino crece ---------- */
+let CREC = 1;                    // 0 = recien nacido, 1 = adulto
+function fijarCrecimiento(v){
+  CREC = (v === undefined || v === null) ? 1 : Math.max(0, Math.min(1, v));
+}
+// escala un adorno (cuerno, cresta, placa, vela, penacho) alrededor de su base
+function adornoCrece(c, ax, ay, minimo, fn){
+  const g = minimo + (1 - minimo) * CREC;
+  if (g < .02) return;
+  c.save();
+  c.translate(ax, ay); c.scale(g, g); c.translate(-ax, -ay);
+  fn();
+  c.restore();
+}
+
+/* ---------- ojo con párpado y ceja ---------- */
+function ojo(c, x, y, r, col, o){
+  o = o || {};
+  r *= 1.30 - .30*CREC;              // los crios tienen los ojos mas grandes
+  const linea = pluma(c, col);
+  c.beginPath(); c.arc(x, y, r, 0, 6.3);
+  pintar(c, "#FFFDF2", linea, 2.4);
+  const pup = o.asustado ? r*.62 : r*.46;
+  c.fillStyle = "#181109";
+  c.beginPath(); c.ellipse(x + r*.28, y, pup*.8, pup, 0, 0, 6.3); c.fill();
+  c.fillStyle = "rgba(255,255,255,.9)";
+  c.beginPath(); c.arc(x + r*.05, y - r*.42, r*.24, 0, 6.3); c.fill();
+  // ceja
+  c.strokeStyle = linea; c.lineWidth = r*.5; c.lineCap = "round";
+  c.beginPath();
+  c.moveTo(x - r*1.15, y - r*(o.asustado ? .8 : 1.0));
+  c.quadraticCurveTo(x, y - r*(o.asustado ? 2.0 : 1.65), x + r*1.25, y - r*.85);
+  c.stroke();
+}
+
+/* ---------- dientes ---------- */
+function dientes(c, x0, x1, y, alto, arriba){
+  alto *= .20 + .80*CREC;            // los colmillos salen al crecer
+  c.fillStyle = "#FFF9E8"; c.strokeStyle = "rgba(90,60,30,.5)"; c.lineWidth = 1;
+  const n = Math.max(3, Math.round((x1-x0)/9));
+  for (let i = 0; i < n; i++){
+    const x = x0 + (x1-x0)*(i/n);
+    const h = alto * (0.7 + 0.3*Math.sin(i*1.7));
+    c.beginPath();
+    c.moveTo(x, y);
+    c.lineTo(x + 3.4, y + (arriba ? h : -h));
+    c.lineTo(x + 6.8, y);
+    c.closePath(); c.fill(); c.stroke();
+  }
+}
+
+/* ---------- patas ---------- */
+// pata de bípedo: muslo, tibia, metatarso y tres dedos
+function pataBipeda(c, ox, fase, alto, col, linea, opts){
+  const o = opts || {};
+  if (typeof col === "string") col = relleno(c, col, -alto*1.15, alto*.12);
+  const a = Math.sin(fase);
+  const cadera = { x: ox, y: -alto };
+  const rodilla = { x: ox - alto*.20 + a*alto*.07, y: -alto*.52 };
+  const tobillo = { x: ox + alto*.16 + a*alto*.30, y: -alto*.24 };
+  const dedo    = { x: tobillo.x + alto*.26, y: -Math.max(0, a)*alto*.16 };
+
+  // muslo como forma carnosa
+  c.beginPath();
+  c.moveTo(cadera.x + alto*.20, cadera.y + alto*.06);
+  c.quadraticCurveTo(cadera.x + alto*.10, rodilla.y - alto*.02, rodilla.x + alto*.06, rodilla.y);
+  c.quadraticCurveTo(cadera.x - alto*.30, rodilla.y - alto*.16, cadera.x - alto*.24, cadera.y + alto*.10);
+  c.closePath();
+  pintar(c, col, linea, 3);
+
+  hueso(c, rodilla.x, rodilla.y, tobillo.x, tobillo.y, alto*.13, col, linea);
+  hueso(c, tobillo.x, tobillo.y, dedo.x, dedo.y, alto*.11, col, linea);
+  bolita(c, rodilla.x, rodilla.y, alto*.08, col, linea);
+
+  // dedos
+  for (let i = -1; i <= 1; i++){
+    const dx = dedo.x + alto*(.10 + i*.03), dy = dedo.y + i*alto*.035;
+    hueso(c, dedo.x, dedo.y, dx, dy, alto*.07, col, linea);
+    garra(c, dx + alto*.03, dy, i*.35, alto*.11, "#F4E9C8", linea);
+  }
+  if (o.hoz){ // garra en hoz del raptor
+    garra(c, tobillo.x + alto*.06, tobillo.y - alto*.02, -0.9, alto*.30, "#F4E9C8", linea);
+  }
+}
+// pata columnar de cuadrúpedo
+function pataColumna(c, ox, fase, alto, ancho, col, linea, dedos){
+  if (typeof col === "string") col = relleno(c, col, -alto*1.1, alto*.1);
+  const a = Math.sin(fase);
+  const pie = { x: ox + a*alto*.14, y: -Math.max(0,a)*alto*.08 };
+  c.beginPath();
+  c.moveTo(ox - ancho*.5, -alto);
+  c.quadraticCurveTo(ox - ancho*.62, -alto*.45, pie.x - ancho*.52, pie.y - alto*.05);
+  c.lineTo(pie.x + ancho*.52, pie.y - alto*.05);
+  c.quadraticCurveTo(ox + ancho*.62, -alto*.45, ox + ancho*.5, -alto);
+  c.closePath();
+  pintar(c, col, linea, 3);
+  // pie
+  c.beginPath();
+  c.ellipse(pie.x, pie.y - alto*.04, ancho*.66, alto*.10, 0, 0, 6.3);
+  pintar(c, oscuro(col, .12), linea, 3);
+  if (dedos !== false){
+    for (let i = -1; i <= 1; i++){
+      c.beginPath();
+      c.arc(pie.x + i*ancho*.30, pie.y - alto*.02, ancho*.17, Math.PI, 0);
+      pintar(c, "#F4E9C8", linea, 2);
+    }
+  }
+}
+
+/* ---------- cola que se afina ---------- */
+function cola(c, pts, w0, col, linea){
+  // pts: [{x,y}...] línea central
+  const izq = [], der = [];
+  for (let i = 0; i < pts.length; i++){
+    const t = i/(pts.length-1);
+    const w = w0 * (1-t) * (1-t*0.35) + 2;
+    const p = pts[i], q = pts[Math.min(i+1, pts.length-1)], r = pts[Math.max(i-1,0)];
+    const ang = Math.atan2(q.y-r.y, q.x-r.x) + Math.PI/2;
+    izq.push({x: p.x + Math.cos(ang)*w, y: p.y + Math.sin(ang)*w});
+    der.push({x: p.x - Math.cos(ang)*w, y: p.y - Math.sin(ang)*w});
+  }
+  c.beginPath();
+  c.moveTo(izq[0].x, izq[0].y);
+  for (const p of izq) c.lineTo(p.x, p.y);
+  for (let i = der.length-1; i >= 0; i--) c.lineTo(der[i].x, der[i].y);
+  c.closePath();
+  pintar(c, col, linea, 3);
+}
+function arcoCola(x0, y0, x1, y1, curva, n){
+  const pts = [];
+  for (let i = 0; i <= n; i++){
+    const t = i/n;
+    const x = x0 + (x1-x0)*t;
+    const y = y0 + (y1-y0)*t + Math.sin(t*Math.PI)*curva;
+    pts.push({x, y});
+  }
+  return pts;
+}
+
+/* =========================================================
+   HERBÍVOROS
+   ========================================================= */
+function dTriceratops(c, p, o){
+  const _c = (o && o.col) || {};
+  const base = _c.base || "#7FA45C", vientre = _c.vientre || "#D6DE9C", adorno = _c.adorno || "#C8A96A";
+  const L = pluma(c, base), bal = Math.sin(p)*2.5;
+  const grad = relleno(c, base, -92, -18);
+
+  // patas del fondo
+  pataColumna(c, -30, p + Math.PI, 42, 22, oscuro(base,.26), L);
+  pataColumna(c,  34, p,           38, 20, oscuro(base,.26), L);
+  // cola
+  cola(c, arcoCola(-40, -58, -104, -30, -12, 8), 17, grad, L);
+  // cuerpo
+  c.beginPath();
+  c.moveTo(-48, -58);
+  c.bezierCurveTo(-52, -100+bal, 34, -104+bal, 52, -70);
+  c.bezierCurveTo(60, -44, 10, -26, -22, -30);
+  c.bezierCurveTo(-42, -32, -48, -44, -48, -58);
+  c.closePath();
+  pintar(c, grad, L, 3.4);
+  // vientre
+  c.beginPath();
+  c.ellipse(4, -42, 34, 14, .06, 0, 6.3);
+  pintar(c, vientre, null);
+  // textura
+  conRecorte(c, cc => { cc.ellipse(0, -66, 52, 34, 0, 0, 6.3); }, cc => {
+    motas(cc, -6, -74, 40, 20, 16, "rgba(70,90,40,.35)", 1.2);
+    escamas(cc, -46, 50, -58, -30, "rgba(60,80,35,.22)");
+  });
+  // patas delanteras
+  pataColumna(c, -22, p, 40, 24, base, L);
+  pataColumna(c,  40, p + Math.PI, 36, 21, base, L);
+
+  // ---- cabeza ----
+  const hx = 66, hy = -80 + bal;
+adornoCrece(c, hx - 4, hy + 24, .52, () => {
+  // gola
+  c.beginPath();
+  c.moveTo(hx - 24, hy + 24);
+  c.bezierCurveTo(hx - 42, hy - 6, hx - 30, hy - 48, hx + 6, hy - 46);
+  c.bezierCurveTo(hx + 36, hy - 44, hx + 40, hy - 4, hx + 26, hy + 22);
+  c.closePath();
+  pintar(c, relleno(c, adorno, hy-50, hy+24), L, 3.4);
+  c.beginPath();
+  c.moveTo(hx - 16, hy + 16);
+  c.bezierCurveTo(hx - 28, hy - 6, hx - 20, hy - 36, hx + 5, hy - 35);
+  c.bezierCurveTo(hx + 26, hy - 34, hx + 30, hy - 4, hx + 19, hy + 15);
+  c.closePath();
+  pintar(c, claro(adorno,.3), null);
+  // bultos del borde
+  for (let i = 0; i < 7; i++){
+    const a = -2.5 + i*.42;
+    bolita(c, hx + 4 + Math.cos(a)*36, hy - 8 + Math.sin(a)*36, 4.2, claro(adorno,.15), L);
+  }
+  });
+  // cráneo
+  c.beginPath();
+  c.moveTo(hx - 10, hy - 18);
+  c.bezierCurveTo(hx + 30, hy - 26, hx + 52, hy - 6, hx + 62, hy + 12);
+  c.bezierCurveTo(hx + 48, hy + 30, hx + 6, hy + 32, hx - 12, hy + 18);
+  c.closePath();
+  pintar(c, relleno(c, base, hy-26, hy+30), L, 3.4);
+  // pico
+  c.beginPath();
+  c.moveTo(hx + 52, hy + 2);
+  c.quadraticCurveTo(hx + 76, hy + 8, hx + 66, hy + 24);
+  c.quadraticCurveTo(hx + 56, hy + 26, hx + 48, hy + 20);
+  c.closePath();
+  pintar(c, "#E8D9A8", L, 2.6);
+  // cuernos
+  const cuerno = (x1,y1,x2,y2,x3,y3,w) => {
+    c.beginPath();
+    c.moveTo(x1, y1 - w); c.quadraticCurveTo(x2, y2, x3, y3);
+    c.quadraticCurveTo(x2 + 3, y2 + w*1.4, x1, y1 + w);
+    c.closePath();
+    pintar(c, relleno(c, "#F0E4C0", y3, y1), L, 2.6);
+  };
+adornoCrece(c, hx + 20, hy + 4, .05, () => {
+  cuerno(hx + 26, hy - 12, hx + 52, hy - 40, hx + 62, hy - 54, 7);
+  cuerno(hx + 14, hy - 16, hx + 34, hy - 44, hx + 40, hy - 60, 6);
+  cuerno(hx + 48, hy + 10, hx + 62, hy - 2, hx + 70, hy - 8, 4);
+  });
+  ojo(c, hx + 24, hy + 2, 6.5, base, o);
+  // orificio nasal
+  c.fillStyle = oscuro(base,.5);
+  c.beginPath(); c.ellipse(hx + 54, hy + 8, 2.6, 2, 0, 0, 6.3); c.fill();
+}
+
+function dStegosaurus(c, p, o){
+  const _c = (o && o.col) || {};
+  const base = _c.base || "#6E9E77", vientre = _c.vientre || "#CFE0AE", placa = _c.placa || "#E08A45";
+  const L = pluma(c, base), bal = Math.sin(p)*2.5;
+  const grad = relleno(c, base, -96, -20);
+
+  pataColumna(c, -26, p + Math.PI, 46, 19, oscuro(base,.26), L);
+  pataColumna(c,  36, p,           26, 17, oscuro(base,.26), L);
+  // cola larga
+  cola(c, arcoCola(-38, -56, -118, -34, -10, 9), 15, grad, L);
+  // púas del extremo
+  for (let i = 0; i < 4; i++){
+    const bx = -96 - (i%2)*10, by = -40 - (i>1?10:0);
+    c.beginPath();
+    c.moveTo(bx, by + 5);
+    c.lineTo(bx - 16 - i*3, by - 16 - i*4);
+    c.lineTo(bx + 6, by - 3);
+    c.closePath();
+    pintar(c, "#F0E4C0", L, 2.4);
+  }
+  // cuerpo con lomo arqueado
+  c.beginPath();
+  c.moveTo(-42, -54);
+  c.bezierCurveTo(-40, -96+bal, 6, -112+bal, 38, -78);
+  c.bezierCurveTo(52, -58, 22, -28, -12, -28);
+  c.bezierCurveTo(-34, -28, -44, -38, -42, -54);
+  c.closePath();
+  pintar(c, grad, L, 3.4);
+  c.beginPath(); c.ellipse(0, -42, 30, 13, .1, 0, 6.3); pintar(c, vientre, null);
+  conRecorte(c, cc => { cc.ellipse(-2, -66, 46, 34, 0, 0, 6.3); }, cc => {
+    motas(cc, -4, -72, 36, 20, 14, "rgba(50,90,60,.3)", 2.1);
+  });
+  // placas dorsales, dos filas
+adornoCrece(c, 0, -46, .12, () => {
+  const placas = [[-40,-72,16],[-26,-84,22],[-10,-94,27],[6,-98,29],[22,-92,24],[36,-80,17]];
+  for (let f = 0; f < 2; f++){
+    for (let i = 0; i < placas.length; i++){
+      const [x0, y0, h] = placas[i];
+      const dx = f ? 5 : -5, dy = f ? 3 : -1;
+      const x = x0 + dx + (f? 7:0), y = y0 + dy + bal*.3;
+      c.beginPath();
+      c.moveTo(x - h*.52, y);
+      c.bezierCurveTo(x - h*.46, y - h*.75, x - h*.20, y - h, x, y - h);
+      c.bezierCurveTo(x + h*.22, y - h, x + h*.48, y - h*.72, x + h*.54, y);
+      c.closePath();
+      pintar(c, relleno(c, f ? placa : oscuro(placa,.16), y-h, y), L, 2.6);
+      c.strokeStyle = "rgba(120,50,15,.35)"; c.lineWidth = 1.4;
+      c.beginPath(); c.moveTo(x, y-4); c.lineTo(x, y-h*.7); c.stroke();
+    }
+  }
+  });
+  // patas delanteras (cortas)
+  pataColumna(c, -18, p, 44, 21, base, L);
+  pataColumna(c,  42, p + Math.PI, 25, 18, base, L);
+  // cabeza baja
+  const hx = 60, hy = -46 + bal;
+  hueso(c, 34, -66, hx - 6, hy - 4, 17, grad, L);
+  c.beginPath();
+  c.moveTo(hx - 12, hy - 10);
+  c.bezierCurveTo(hx + 14, hy - 16, hx + 30, hy - 6, hx + 36, hy + 4);
+  c.bezierCurveTo(hx + 28, hy + 16, hx + 2, hy + 18, hx - 12, hy + 10);
+  c.closePath();
+  pintar(c, relleno(c, base, hy-16, hy+18), L, 3);
+  c.beginPath();
+  c.moveTo(hx + 26, hy - 1); c.quadraticCurveTo(hx + 44, hy + 4, hx + 34, hy + 13);
+  c.quadraticCurveTo(hx + 28, hy + 14, hx + 24, hy + 10); c.closePath();
+  pintar(c, "#E8D9A8", L, 2.2);
+  ojo(c, hx + 10, hy - 2, 5.4, base, o);
+}
+
+function dAnquilosaurio(c, p, o){
+  const _c = (o && o.col) || {};
+  const base = _c.base || "#8A8358", vientre = _c.vientre || "#D2C892", placa = _c.placa || "#5E5A3C";
+  const L = pluma(c, base), bal = Math.sin(p)*1.8;
+  const grad = relleno(c, base, -74, -14);
+
+  pataColumna(c, -28, p + Math.PI, 26, 20, oscuro(base,.26), L, false);
+  pataColumna(c,  32, p,           24, 19, oscuro(base,.26), L, false);
+  // cola con maza
+  cola(c, arcoCola(-40, -44, -96, -34, -6, 7), 13, grad, L);
+adornoCrece(c, -88, -36, .14, () => {
+  c.beginPath(); c.ellipse(-108, -34, 20, 16, .2, 0, 6.3);
+  pintar(c, relleno(c, placa, -50, -18), L, 3.2);
+  c.beginPath(); c.ellipse(-114, -38, 8, 7, .2, 0, 6.3); pintar(c, claro(placa,.28), null);
+  for (let i = 0; i < 4; i++){
+    const a = 1.6 + i*.9;
+    bolita(c, -108 + Math.cos(a)*13, -34 + Math.sin(a)*11, 3.4, claro(placa,.2), L);
+  }
+  });
+  // cuerpo ancho y bajo
+  c.beginPath();
+  c.moveTo(-46, -40);
+  c.bezierCurveTo(-48, -70+bal, 30, -76+bal, 50, -52);
+  c.bezierCurveTo(58, -34, 16, -20, -16, -22);
+  c.bezierCurveTo(-38, -24, -46, -30, -46, -40);
+  c.closePath();
+  pintar(c, grad, L, 3.4);
+  c.beginPath(); c.ellipse(2, -30, 32, 10, 0, 0, 6.3); pintar(c, vientre, null);
+  // coraza: hileras de osteodermos
+  conRecorte(c, cc => {
+    cc.moveTo(-46,-40); cc.bezierCurveTo(-48,-70+bal,30,-76+bal,50,-52);
+    cc.bezierCurveTo(58,-34,16,-20,-16,-22); cc.bezierCurveTo(-38,-24,-46,-30,-46,-40);
+  }, cc => {
+    for (let fila = 0; fila < 3; fila++){
+      for (let i = 0; i < 9; i++){
+        const x = -44 + i*12 + (fila%2)*6, y = -66 + fila*12 + bal*.3;
+        cc.beginPath(); cc.ellipse(x, y, 6, 4.6, 0, 0, 6.3);
+        cc.fillStyle = fila === 0 ? claro(placa,.34) : claro(placa,.18);
+        cc.fill();
+        cc.strokeStyle = "rgba(40,36,20,.4)"; cc.lineWidth = 1.2; cc.stroke();
+      }
+    }
+  });
+  // púas laterales
+adornoCrece(c, 0, -32, .10, () => {
+  for (let i = 0; i < 6; i++){
+    const x = -40 + i*17;
+    c.beginPath();
+    c.moveTo(x - 7, -34); c.lineTo(x + 1, -58 - (i%2)*5); c.lineTo(x + 8, -34);
+    c.closePath();
+    pintar(c, "#F0E4C0", L, 2.2);
+  }
+  });
+  pataColumna(c, -20, p, 27, 22, base, L, false);
+  pataColumna(c,  38, p + Math.PI, 25, 21, base, L, false);
+  // cabeza baja y ancha
+  const hx = 62, hy = -42 + bal;
+  c.beginPath();
+  c.moveTo(hx - 16, hy - 12);
+  c.bezierCurveTo(hx + 12, hy - 20, hx + 34, hy - 10, hx + 40, hy + 4);
+  c.bezierCurveTo(hx + 32, hy + 18, hx + 2, hy + 20, hx - 16, hy + 12);
+  c.closePath();
+  pintar(c, relleno(c, base, hy-20, hy+20), L, 3.2);
+adornoCrece(c, hx + 6, hy + 4, .08, () => {
+  // cuernos de las mejillas
+  c.beginPath(); c.moveTo(hx + 4, hy + 8); c.lineTo(hx - 6, hy + 24); c.lineTo(hx + 16, hy + 12); c.closePath();
+  pintar(c, "#E8D9A8", L, 2.2);
+  c.beginPath(); c.moveTo(hx + 4, hy - 8); c.lineTo(hx - 4, hy - 24); c.lineTo(hx + 18, hy - 10); c.closePath();
+  pintar(c, "#E8D9A8", L, 2.2);
+  c.beginPath();
+  c.moveTo(hx + 28, hy - 2); c.quadraticCurveTo(hx + 46, hy + 4, hx + 36, hy + 13);
+  c.quadraticCurveTo(hx + 30, hy + 14, hx + 26, hy + 10); c.closePath();
+  pintar(c, "#E8D9A8", L, 2.2);
+  });
+  ojo(c, hx + 14, hy - 1, 5.2, base, o);
+}
+
+function dBraquiosaurio(c, p, o){
+  const _c = (o && o.col) || {};
+  const base = _c.base || "#8B9BB0", vientre = _c.vientre || "#DCE4EC", adorno = _c.adorno || "#5F6E80";
+  const L = pluma(c, base), bal = Math.sin(p)*3;
+  const grad = relleno(c, base, -120, -20);
+
+  pataColumna(c, -30, p + Math.PI, 54, 21, oscuro(base,.26), L, false);
+  pataColumna(c,  36, p,           64, 22, oscuro(base,.26), L, false);
+  cola(c, arcoCola(-42, -80, -128, -34, -14, 9), 16, grad, L);
+  // cuerpo, más alto en los hombros
+  c.beginPath();
+  c.moveTo(-46, -76);
+  c.bezierCurveTo(-44, -112+bal, 22, -128+bal, 46, -100);
+  c.bezierCurveTo(58, -78, 20, -48, -14, -50);
+  c.bezierCurveTo(-38, -52, -46, -62, -46, -76);
+  c.closePath();
+  pintar(c, grad, L, 3.4);
+  c.beginPath(); c.ellipse(-2, -62, 32, 13, .05, 0, 6.3); pintar(c, vientre, null);
+  conRecorte(c, cc => { cc.ellipse(0, -88, 46, 32, 0, 0, 6.3); }, cc => {
+    motas(cc, 0, -94, 38, 18, 18, "rgba(60,74,92,.3)", .7);
+  });
+  pataColumna(c, -22, p, 52, 23, base, L, false);
+  pataColumna(c,  42, p + Math.PI, 62, 24, base, L, false);
+
+  // cuello largo, dibujado como cola invertida
+  const cuello = [];
+  for (let i = 0; i <= 10; i++){
+    const t = i/10;
+    cuello.push({ x: 30 + Math.sin(t*1.5)*30 + t*10, y: -114 - t*86 + bal*t });
+  }
+  cola(c, cuello.slice().reverse(), 15, grad, L);
+  // cabeza
+  const hx = 72, hy = -202 + bal;
+  c.beginPath();
+  c.moveTo(hx - 16, hy + 2);
+  c.bezierCurveTo(hx - 8, hy - 14, hx + 18, hy - 14, hx + 26, hy + 2);
+  c.bezierCurveTo(hx + 30, hy + 14, hx + 2, hy + 18, hx - 14, hy + 12);
+  c.closePath();
+  pintar(c, relleno(c, base, hy-16, hy+18), L, 3);
+adornoCrece(c, hx + 2, hy - 2, .08, () => {
+  // cresta nasal
+  c.beginPath(); c.ellipse(hx + 2, hy - 12, 13, 9, 0, Math.PI, 0);
+  pintar(c, relleno(c, adorno, hy-22, hy-4), L, 2.6);
+  });
+  // hocico
+  c.beginPath();
+  c.moveTo(hx + 18, hy + 1); c.quadraticCurveTo(hx + 36, hy + 6, hx + 26, hy + 14);
+  c.quadraticCurveTo(hx + 20, hy + 15, hx + 16, hy + 11); c.closePath();
+  pintar(c, "#E8D9A8", L, 2.2);
+  ojo(c, hx + 4, hy - 1, 5.4, base, o);
+}
+
+/* =========================================================
+   CARNÍVOROS
+   ========================================================= */
+// tronco compartido de los bípedos
+function troncoBipedo(c, cf, p, o){
+  const L = pluma(c, cf.base), bal = Math.sin(p)*3;
+  const grad = relleno(c, cf.base, cf.cuerpoY - cf.ry - 12, cf.cuerpoY + cf.ry + 6);
+  // pata del fondo
+  pataBipeda(c, -4, p + Math.PI, cf.pata, oscuro(cf.base,.28), L, {hoz: cf.hoz});
+  // cola
+  cola(c, arcoCola(-16, cf.cuerpoY + 12, cf.colaX, cf.cuerpoY + cf.colaY, cf.colaCurva, 9), cf.colaW, grad, L);
+  // cuerpo
+  c.beginPath();
+  c.moveTo(-26, cf.cuerpoY + 4);
+  c.bezierCurveTo(-30, cf.cuerpoY - cf.ry - 6 + bal, 10, cf.cuerpoY - cf.ry - 10 + bal, cf.rx, cf.cuerpoY - cf.ry*.35);
+  c.bezierCurveTo(cf.rx + 8, cf.cuerpoY + cf.ry*.7, 4, cf.cuerpoY + cf.ry + 6, -14, cf.cuerpoY + cf.ry);
+  c.bezierCurveTo(-24, cf.cuerpoY + cf.ry - 4, -26, cf.cuerpoY + 12, -26, cf.cuerpoY + 4);
+  c.closePath();
+  pintar(c, grad, L, 3.4);
+  // vientre claro
+  c.beginPath();
+  c.ellipse(2, cf.cuerpoY + cf.ry*.5, cf.rx*.62, cf.ry*.42, .05, 0, 6.3);
+  pintar(c, cf.vientre, null);
+  return { L, bal, grad };
+}
+function brazoCorto(c, x, y, largo, ancho, col, linea, dedos){
+  hueso(c, x, y, x + largo*.7, y + largo*.5, ancho, col, linea);
+  hueso(c, x + largo*.7, y + largo*.5, x + largo, y + largo*.95, ancho*.8, col, linea);
+  for (let i = 0; i < (dedos||2); i++){
+    garra(c, x + largo + i*2.5, y + largo*.95 + i*2, .5 + i*.4, ancho*1.5, "#F4E9C8", linea);
+  }
+}
+
+function dTiranosaurio(c, p, o){
+  const cf = { base:"#7A8B5E", vientre:"#CDD49A", cuerpoY:-84, rx:44, ry:30, pata:52,
+               colaX:-116, colaY:14, colaCurva:-8, colaW:17 };
+  if (o && o.col) Object.assign(cf, o.col);
+  const { L, bal, grad } = troncoBipedo(c, cf, p, o);
+  conRecorte(c, cc => { cc.ellipse(6, cf.cuerpoY - 4, 42, 28, 0, 0, 6.3); }, cc => {
+    motas(cc, 4, cf.cuerpoY - 12, 36, 18, 20, "rgba(50,62,32,.34)", 1.1);
+  });
+  brazoCorto(c, 26, cf.cuerpoY + 6, 17, 7, oscuro(cf.base,.16), L, 2);
+  pataBipeda(c, 4, p, cf.pata, cf.base, L, {});
+
+  // cuello grueso en S
+  const cuello = [{x:22,y:-104},{x:32,y:-118},{x:42,y:-130+bal*.4},{x:52,y:-136+bal*.5}];
+  cola(c, cuello.slice().reverse(), 17, grad, L);
+  // ---- cráneo grande ----
+  const hx = 62, hy = -140 + bal;
+  c.beginPath();
+  c.moveTo(hx - 16, hy + 4);
+  c.bezierCurveTo(hx - 10, hy - 20, hx + 20, hy - 26, hx + 44, hy - 16);
+  c.bezierCurveTo(hx + 66, hy - 8, hx + 76, hy + 2, hx + 78, hy + 8);
+  c.bezierCurveTo(hx + 60, hy + 14, hx + 10, hy + 18, hx - 14, hy + 14);
+  c.closePath();
+  pintar(c, relleno(c, cf.base, hy-26, hy+18), L, 3.4);
+  // mandíbula
+  c.beginPath();
+  c.moveTo(hx - 12, hy + 12);
+  c.bezierCurveTo(hx + 20, hy + 22, hx + 58, hy + 20, hx + 76, hy + 10);
+  c.bezierCurveTo(hx + 58, hy + 30, hx + 12, hy + 32, hx - 10, hy + 24);
+  c.closePath();
+  pintar(c, relleno(c, oscuro(cf.base,.1), hy+8, hy+32), L, 3);
+  dientes(c, hx + 14, hx + 68, hy + 13, 8, true);
+  dientes(c, hx + 16, hx + 66, hy + 22, 7, false);
+adornoCrece(c, hx + 24, hy - 6, .10, () => {
+  // cresta sobre el ojo
+  c.beginPath(); c.ellipse(hx + 24, hy - 14, 15, 6, -.1, Math.PI, 0);
+  pintar(c, relleno(c, oscuro(cf.base,.2), hy-24, hy-8), L, 2.4);
+  });
+  ojo(c, hx + 22, hy - 4, 7, cf.base, o);
+  c.fillStyle = oscuro(cf.base,.55);
+  c.beginPath(); c.ellipse(hx + 64, hy - 4, 3.2, 2.4, 0, 0, 6.3); c.fill();
+  // escamas del morro
+  conRecorte(c, cc => {
+    cc.moveTo(hx-16,hy+4); cc.bezierCurveTo(hx-10,hy-20,hx+20,hy-26,hx+44,hy-16);
+    cc.bezierCurveTo(hx+66,hy-8,hx+76,hy+2,hx+78,hy+8);
+    cc.bezierCurveTo(hx+60,hy+14,hx+10,hy+18,hx-14,hy+14);
+  }, cc => escamas(cc, hx-14, hx+78, hy-22, hy+16, "rgba(40,50,26,.3)"));
+}
+
+function dVelociraptor(c, p, o){
+  const cf = { base:"#B4763C", vientre:"#EBD2A0", cuerpoY:-72, rx:34, ry:22, pata:48, hoz:true,
+               colaX:-118, colaY:-10, colaCurva:4, colaW:11 };
+  if (o && o.col) Object.assign(cf, o.col);
+  const { L, bal, grad } = troncoBipedo(c, cf, p, o);
+  // plumas de la cola
+  c.fillStyle = "#8E5628"; c.strokeStyle = L; c.lineWidth = 1.6;
+  for (let i = 0; i < 7; i++){
+    const t = i/6, x = -20 - t*94, y = cf.cuerpoY + 12 - t*22 + Math.sin(t*Math.PI)*4;
+    c.beginPath();
+    c.moveTo(x, y - 4);
+    c.quadraticCurveTo(x - 8, y - 18, x - 20, y - 20);
+    c.quadraticCurveTo(x - 10, y - 8, x - 2, y - 2);
+    c.closePath(); c.fill(); c.stroke();
+  }
+  conRecorte(c, cc => { cc.ellipse(4, cf.cuerpoY - 2, 32, 21, 0, 0, 6.3); }, cc => {
+    rayas(cc, -22, 30, cf.cuerpoY - 24, cf.cuerpoY + 16, 7, "rgba(90,50,18,.4)", 5, 7);
+  });
+  // brazo con plumas
+  c.fillStyle = "#8E5628"; c.strokeStyle = L; c.lineWidth = 1.8;
+  for (let i = 0; i < 5; i++){
+    c.beginPath();
+    c.moveTo(20 + i*4, cf.cuerpoY + 6 + i*3);
+    c.quadraticCurveTo(6 + i*4, cf.cuerpoY + 26 + i*4, -2 + i*5, cf.cuerpoY + 34 + i*4);
+    c.quadraticCurveTo(12 + i*4, cf.cuerpoY + 20 + i*3, 22 + i*4, cf.cuerpoY + 10 + i*3);
+    c.closePath(); c.fill(); c.stroke();
+  }
+  brazoCorto(c, 24, cf.cuerpoY + 4, 20, 6, oscuro(cf.base,.14), L, 3);
+  pataBipeda(c, 4, p, cf.pata, cf.base, L, {hoz:true});
+adornoCrece(c, 26, cf.cuerpoY - 18, .08, () => {
+  // penacho
+  c.fillStyle = "#D9A24E"; c.strokeStyle = L; c.lineWidth = 1.6;
+  for (let i = 0; i < 5; i++){
+    c.beginPath();
+    c.moveTo(24 + i*3, cf.cuerpoY - 20 - i*2);
+    c.quadraticCurveTo(16 + i*3, cf.cuerpoY - 38 - i*3, 22 + i*4, cf.cuerpoY - 44 - i*3);
+    c.quadraticCurveTo(26 + i*3, cf.cuerpoY - 32 - i*2, 30 + i*3, cf.cuerpoY - 20 - i*2);
+    c.closePath(); c.fill(); c.stroke();
+  }
+  });
+  // cuello
+  const cuello = [{x:22,y:-88},{x:32,y:-100},{x:40,y:-112+bal*.4},{x:46,y:-118+bal*.5}];
+  cola(c, cuello.slice().reverse(), 11, grad, L);
+  // cabeza alargada
+  const hx = 54, hy = -122 + bal;
+  c.beginPath();
+  c.moveTo(hx - 12, hy + 4);
+  c.bezierCurveTo(hx - 6, hy - 12, hx + 14, hy - 16, hx + 30, hy - 10);
+  c.bezierCurveTo(hx + 50, hy - 4, hx + 62, hy + 2, hx + 66, hy + 6);
+  c.bezierCurveTo(hx + 48, hy + 12, hx + 8, hy + 14, hx - 10, hy + 12);
+  c.closePath();
+  pintar(c, relleno(c, cf.base, hy-16, hy+14), L, 3);
+  c.beginPath();
+  c.moveTo(hx - 8, hy + 10);
+  c.bezierCurveTo(hx + 18, hy + 17, hx + 48, hy + 15, hx + 64, hy + 8);
+  c.bezierCurveTo(hx + 46, hy + 24, hx + 10, hy + 24, hx - 6, hy + 19);
+  c.closePath();
+  pintar(c, relleno(c, oscuro(cf.base,.1), hy+8, hy+24), L, 2.6);
+  dientes(c, hx + 14, hx + 58, hy + 11, 6, true);
+  ojo(c, hx + 14, hy - 2, 6, cf.base, o);
+  c.fillStyle = oscuro(cf.base,.55);
+  c.beginPath(); c.ellipse(hx + 52, hy - 1, 2.6, 2, 0, 0, 6.3); c.fill();
+}
+
+function dEspinosaurio(c, p, o){
+  const cf = { base:"#5C7EA0", vientre:"#C6D8E6", cuerpoY:-80, rx:40, ry:26, pata:50,
+               colaX:-120, colaY:6, colaCurva:-4, colaW:14 };
+  if (o && o.col) Object.assign(cf, o.col);
+  const { L, bal, grad } = troncoBipedo(c, cf, p, o);
+adornoCrece(c, 4, cf.cuerpoY - 22, .10, () => {
+  // vela dorsal con radios
+  const velaBase = cf.cuerpoY - 26;
+  c.beginPath();
+  c.moveTo(-34, velaBase + 4);
+  c.bezierCurveTo(-26, velaBase - 76, 24, velaBase - 84, 40, velaBase + 2);
+  c.closePath();
+  pintar(c, relleno(c, "#D95C3C", velaBase - 84, velaBase + 4), L, 3);
+  c.strokeStyle = "rgba(90,30,16,.45)"; c.lineWidth = 3; c.lineCap = "round";
+  for (let i = 0; i < 7; i++){
+    const x = -28 + i*11;
+    c.beginPath(); c.moveTo(x, velaBase + 2);
+    c.lineTo(x + 2, velaBase - 40 - Math.sin(i/6*Math.PI)*32);
+    c.stroke();
+  }
+  });
+  conRecorte(c, cc => { cc.ellipse(4, cf.cuerpoY - 4, 38, 25, 0, 0, 6.3); }, cc => {
+    rayas(cc, -26, 34, cf.cuerpoY - 26, cf.cuerpoY + 18, 6, "rgba(30,54,76,.4)", 6, 6);
+  });
+  brazoCorto(c, 26, cf.cuerpoY + 4, 24, 8, oscuro(cf.base,.14), L, 3);
+  pataBipeda(c, 4, p, cf.pata, cf.base, L, {});
+  const cuello = [{x:24,y:-102},{x:34,y:-116},{x:44,y:-128+bal*.4},{x:52,y:-134+bal*.5}];
+  cola(c, cuello.slice().reverse(), 14, grad, L);
+  // hocico largo de cocodrilo
+  const hx = 60, hy = -138 + bal;
+  c.beginPath();
+  c.moveTo(hx - 14, hy + 2);
+  c.bezierCurveTo(hx - 8, hy - 14, hx + 10, hy - 16, hx + 24, hy - 12);
+  c.lineTo(hx + 84, hy - 4);
+  c.bezierCurveTo(hx + 92, hy + 2, hx + 88, hy + 8, hx + 80, hy + 9);
+  c.lineTo(hx + 6, hy + 14);
+  c.bezierCurveTo(hx - 8, hy + 14, hx - 16, hy + 10, hx - 14, hy + 2);
+  c.closePath();
+  pintar(c, relleno(c, cf.base, hy-16, hy+14), L, 3);
+  c.beginPath();
+  c.moveTo(hx + 2, hy + 12);
+  c.lineTo(hx + 78, hy + 8);
+  c.quadraticCurveTo(hx + 84, hy + 18, hx + 72, hy + 19);
+  c.lineTo(hx + 4, hy + 22);
+  c.closePath();
+  pintar(c, relleno(c, oscuro(cf.base,.1), hy+8, hy+24), L, 2.6);
+  dientes(c, hx + 16, hx + 74, hy + 12, 7, true);
+  // cresta pequeña sobre el hocico
+  c.beginPath(); c.ellipse(hx + 30, hy - 12, 12, 6, 0, Math.PI, 0);
+  pintar(c, "#D95C3C", L, 2.2);
+  ojo(c, hx + 8, hy - 3, 6, cf.base, o);
+}
+
+function dCarnotauro(c, p, o){
+  const cf = { base:"#A04A3A", vientre:"#E8AE90", cuerpoY:-86, rx:40, ry:27, pata:56,
+               colaX:-118, colaY:8, colaCurva:-6, colaW:15 };
+  if (o && o.col) Object.assign(cf, o.col);
+  const { L, bal, grad } = troncoBipedo(c, cf, p, o);
+  conRecorte(c, cc => { cc.ellipse(4, cf.cuerpoY - 4, 38, 26, 0, 0, 6.3); }, cc => {
+    rayas(cc, -26, 34, cf.cuerpoY - 28, cf.cuerpoY + 20, 7, "rgba(70,20,12,.42)", 7, 8);
+  });
+  // hileras de osteodermos en el lomo
+  for (let i = 0; i < 9; i++){
+    const x = -28 + i*9;
+    bolita(c, x, cf.cuerpoY - 26 + Math.sin(i*.6)*2 + bal*.3, 3.6, claro(cf.base,.3), L);
+  }
+  // bracitos diminutos
+  brazoCorto(c, 28, cf.cuerpoY + 8, 9, 5, oscuro(cf.base,.14), L, 2);
+  pataBipeda(c, 4, p, cf.pata, cf.base, L, {});
+  const cuello = [{x:24,y:-108},{x:34,y:-122},{x:42,y:-132+bal*.4},{x:48,y:-138+bal*.5}];
+  cola(c, cuello.slice().reverse(), 16, grad, L);
+  // cráneo corto y profundo
+  const hx = 58, hy = -142 + bal;
+  c.beginPath();
+  c.moveTo(hx - 14, hy + 4);
+  c.bezierCurveTo(hx - 8, hy - 16, hx + 14, hy - 22, hx + 34, hy - 16);
+  c.bezierCurveTo(hx + 52, hy - 10, hx + 58, hy, hx + 58, hy + 6);
+  c.bezierCurveTo(hx + 42, hy + 14, hx + 8, hy + 16, hx - 12, hy + 14);
+  c.closePath();
+  pintar(c, relleno(c, cf.base, hy-22, hy+16), L, 3.2);
+  c.beginPath();
+  c.moveTo(hx - 10, hy + 12);
+  c.bezierCurveTo(hx + 14, hy + 20, hx + 42, hy + 18, hx + 56, hy + 8);
+  c.bezierCurveTo(hx + 40, hy + 28, hx + 8, hy + 28, hx - 8, hy + 22);
+  c.closePath();
+  pintar(c, relleno(c, oscuro(cf.base,.1), hy+8, hy+28), L, 2.8);
+  dientes(c, hx + 12, hx + 50, hy + 12, 7, true);
+  // los dos cuernos característicos
+  const cuernito = (bx, by, dx, dy) => {
+    c.beginPath();
+    c.moveTo(bx - 7, by + 3);
+    c.quadraticCurveTo(bx + dx*.4, by + dy*.6, bx + dx, by + dy);
+    c.quadraticCurveTo(bx + dx*.3, by + dy*.4 + 6, bx + 7, by + 4);
+    c.closePath();
+    pintar(c, relleno(c, "#F0E4C0", by+dy, by+4), L, 2.4);
+  };
+adornoCrece(c, hx + 18, hy - 6, .05, () => {
+  cuernito(hx + 8, hy - 16, -12, -20);
+  cuernito(hx + 28, hy - 18, 14, -18);
+  });
+  ojo(c, hx + 18, hy - 4, 6.5, cf.base, o);
+  c.fillStyle = oscuro(cf.base,.5);
+  c.beginPath(); c.ellipse(hx + 48, hy - 4, 2.8, 2.2, 0, 0, 6.3); c.fill();
+}
+
+function dDilofosaurio(c, p, o){
+  const cf = { base:"#6FA05A", vientre:"#D6E8AE", cuerpoY:-74, rx:34, ry:22, pata:48,
+               colaX:-116, colaY:-4, colaCurva:2, colaW:12 };
+  if (o && o.col) Object.assign(cf, o.col);
+  const { L, bal, grad } = troncoBipedo(c, cf, p, o);
+  conRecorte(c, cc => { cc.ellipse(4, cf.cuerpoY - 2, 32, 21, 0, 0, 6.3); }, cc => {
+    motas(cc, 2, cf.cuerpoY - 8, 28, 16, 16, "rgba(226,80,75,.35)", 3.3);
+  });
+  brazoCorto(c, 24, cf.cuerpoY + 4, 20, 6, oscuro(cf.base,.14), L, 3);
+  pataBipeda(c, 4, p, cf.pata, cf.base, L, {});
+  const cuello = [{x:22,y:-92},{x:32,y:-106},{x:40,y:-118+bal*.4},{x:46,y:-124+bal*.5}];
+  cola(c, cuello.slice().reverse(), 12, grad, L);
+  // collar eréctil
+  const hx = 54, hy = -128 + bal;
+  c.beginPath();
+  c.moveTo(hx - 6, hy + 16);
+  c.bezierCurveTo(hx - 34, hy + 12, hx - 34, hy - 22, hx - 6, hy - 14);
+  c.closePath();
+  pintar(c, relleno(c, "#E2504B", hy-24, hy+18), L, 2.6);
+  c.strokeStyle = "rgba(120,20,20,.4)"; c.lineWidth = 2;
+  for (let i = 0; i < 4; i++){
+    c.beginPath(); c.moveTo(hx - 8, hy + 6 - i*7); c.lineTo(hx - 28, hy + 4 - i*8); c.stroke();
+  }
+  // cabeza estrecha
+  c.beginPath();
+  c.moveTo(hx - 12, hy + 4);
+  c.bezierCurveTo(hx - 6, hy - 12, hx + 12, hy - 16, hx + 28, hy - 10);
+  c.bezierCurveTo(hx + 46, hy - 4, hx + 58, hy + 2, hx + 62, hy + 6);
+  c.bezierCurveTo(hx + 44, hy + 12, hx + 8, hy + 14, hx - 10, hy + 12);
+  c.closePath();
+  pintar(c, relleno(c, cf.base, hy-16, hy+14), L, 3);
+  c.beginPath();
+  c.moveTo(hx - 8, hy + 10);
+  c.bezierCurveTo(hx + 16, hy + 17, hx + 44, hy + 15, hx + 60, hy + 8);
+  c.bezierCurveTo(hx + 42, hy + 24, hx + 8, hy + 24, hx - 6, hy + 19);
+  c.closePath();
+  pintar(c, relleno(c, oscuro(cf.base,.1), hy+8, hy+24), L, 2.6);
+  dientes(c, hx + 14, hx + 54, hy + 11, 6, true);
+adornoCrece(c, hx + 14, hy - 8, .05, () => {
+  // las dos crestas
+  for (let i = 0; i < 2; i++){
+    const dx = i*9, dy = -i*2;
+    c.beginPath();
+    c.moveTo(hx + 2 + dx, hy - 8 + dy);
+    c.bezierCurveTo(hx + 4 + dx, hy - 30 + dy, hx + 26 + dx, hy - 32 + dy, hx + 30 + dx, hy - 10 + dy);
+    c.bezierCurveTo(hx + 22 + dx, hy - 16 + dy, hx + 10 + dx, hy - 16 + dy, hx + 2 + dx, hy - 8 + dy);
+    c.closePath();
+    pintar(c, relleno(c, i ? "#F2A93B" : "#E2504B", hy-32, hy-8), L, 2.4);
+  }
+  });
+  ojo(c, hx + 12, hy - 2, 6, cf.base, o);
+}
+
+const DIBUJO = {
+  triceratops:dTriceratops, stegosaurus:dStegosaurus, anquilosaurio:dAnquilosaurio,
+  braquiosaurio:dBraquiosaurio, tiranosaurio:dTiranosaurio, velociraptor:dVelociraptor,
+  espinosaurio:dEspinosaurio, carnotauro:dCarnotauro, dilofosaurio:dDilofosaurio
+};
+
+
+/* =========================================================
+   COMIDA Y PRESAS — ancladas al suelo en y=0
+   ========================================================= */
+function hoja(c, x, y, ang, largo, ancho, col, linea){
+  c.save(); c.translate(x,y); c.rotate(ang);
+  c.beginPath();
+  c.moveTo(0,0);
+  c.quadraticCurveTo(ancho, -largo*.45, 0, -largo);
+  c.quadraticCurveTo(-ancho, -largo*.45, 0, 0);
+  c.closePath();
+  pintar(c, col, linea, 2);
+  c.strokeStyle = linea; c.lineWidth = 1.2;
+  c.beginPath(); c.moveTo(0,-2); c.lineTo(0,-largo*.88); c.stroke();
+  c.restore();
+}
+function fronda(c, x, y, ang, largo, col, linea){
+  c.save(); c.translate(x,y); c.rotate(ang);
+  c.strokeStyle = linea; c.lineWidth = 3.4; c.lineCap="round";
+  c.beginPath(); c.moveTo(0,0); c.quadraticCurveTo(largo*.2,-largo*.5,largo*.1,-largo); c.stroke();
+  c.strokeStyle = oscuro(col,.15); c.lineWidth = 2.2;
+  c.beginPath(); c.moveTo(0,0); c.quadraticCurveTo(largo*.2,-largo*.5,largo*.1,-largo); c.stroke();
+  for (let i=1;i<=7;i++){
+    const t = i/8, px = largo*.2*t*(2-t) - largo*.1*t*t + largo*.1*t*t, py = -largo*t;
+    const l = largo*.26*(1-t*.55);
+    for (const s of [-1,1]){
+      c.beginPath();
+      c.moveTo(px, py);
+      c.quadraticCurveTo(px + s*l*.7, py - l*.25, px + s*l, py - l*.55);
+      c.quadraticCurveTo(px + s*l*.55, py + l*.08, px, py + 1.5);
+      c.closePath();
+      pintar(c, col, linea, 1.4);
+    }
+  }
+  c.restore();
+}
+const COMIDA = {
+  helecho(c, f, o){
+    const col = "#4E9E4A", L = pluma(c, col);
+    for (let i=-2;i<=2;i++) fronda(c, i*2, 0, i*.42 + Math.sin(f+i)*.03, 34 - Math.abs(i)*4, i%2?col:claro(col,.14), L);
+    c.beginPath(); c.ellipse(0,-1,9,4,0,0,6.3); pintar(c, "#6B5136", L, 2);
+  },
+  fruto(c, f, o){
+    const tallo = "#4E7A32", L = pluma(c, tallo), baya = "#E8483F";
+    c.strokeStyle = L; c.lineWidth = 5; c.lineCap="round";
+    c.beginPath(); c.moveTo(0,0); c.quadraticCurveTo(-3,-16,-2,-26); c.stroke();
+    c.strokeStyle = tallo; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(0,0); c.quadraticCurveTo(-3,-16,-2,-26); c.stroke();
+    hoja(c, -2,-20, -1.15, 17, 7, "#67A83F", L);
+    hoja(c,  0,-22,  1.05, 15, 6, "#5B9836", L);
+    const pos = [[-9,-30],[9,-28],[0,-42],[-6,-44],[7,-42]];
+    for (let i=0;i<pos.length;i++){
+      const [x,y] = pos[i];
+      c.beginPath(); c.arc(x, y + Math.sin(f+i)*.6, 9, 0, 6.3);
+      pintar(c, relleno(c, baya, y-10, y+9), pluma(c,baya), 2.4);
+      c.fillStyle = "rgba(255,255,255,.75)";
+      c.beginPath(); c.arc(x-3.4, y-3.8, 2.4, 0, 6.3); c.fill();
+    }
+  },
+  cicada(c, f, o){
+    const col = "#5DA046", L = pluma(c, col);
+    c.beginPath();
+    c.moveTo(-11,0); c.quadraticCurveTo(-13,-22,-8,-30); c.lineTo(8,-30);
+    c.quadraticCurveTo(13,-22,11,0); c.closePath();
+    pintar(c, relleno(c, "#8A6A3C", -32, 2), pluma(c,"#8A6A3C"), 2.6);
+    c.strokeStyle = "rgba(60,40,18,.5)"; c.lineWidth = 1.4;
+    for (let i=0;i<3;i++){ c.beginPath(); c.moveTo(-10,-8-i*8); c.lineTo(10,-8-i*8); c.stroke(); }
+    for (let i=-3;i<=3;i++) fronda(c, i*2.2, -30, i*.40 + Math.sin(f+i)*.03, 30 - Math.abs(i)*3.2, i%2?col:claro(col,.16), L);
+    c.beginPath(); c.ellipse(0,-30,8,6,0,0,6.3); pintar(c, "#C98A3A", L, 2);
+  },
+  lagarto(c, f, o){
+    const col = "#6FA86A", L = pluma(c, col), on = Math.sin(f*2)*3;
+    // cola enroscada
+    c.strokeStyle = L; c.lineWidth = 9; c.lineCap="round";
+    c.beginPath(); c.moveTo(-8,-9); c.quadraticCurveTo(-30,-6+on, -34,-18); c.stroke();
+    c.strokeStyle = oscuro(col,.12); c.lineWidth = 6;
+    c.beginPath(); c.moveTo(-8,-9); c.quadraticCurveTo(-30,-6+on, -34,-18); c.stroke();
+    // patas
+    for (const [px,dir] of [[-6,-1],[10,1]]){
+      for (const s of [0,1]){
+        hueso(c, px, -8, px + dir*8 - 3, -2 + s*1, 4.5, s? oscuro(col,.25): col, L);
+        for (let t=-1;t<=1;t++) hueso(c, px+dir*8-3, -2+s, px+dir*8-3+t*3.5+dir*3, 0+s, 2, s? oscuro(col,.25): col, L);
+      }
+    }
+    // cuerpo
+    c.beginPath(); c.ellipse(1,-11,16,8.5,-.06,0,6.3);
+    pintar(c, relleno(c, col, -22, -2), L, 2.6);
+    conRecorte(c, cc=>{cc.ellipse(1,-11,16,8.5,-.06,0,6.3);}, cc=>{
+      rayas(cc, -12, 14, -22, -2, 5, "rgba(40,80,40,.45)", 3, 2);
+    });
+    // cresta dorsal
+    c.fillStyle = oscuro(col,.3);
+    for (let i=0;i<5;i++){ c.beginPath(); c.moveTo(-8+i*6,-18); c.lineTo(-6+i*6,-23); c.lineTo(-3+i*6,-18); c.closePath(); c.fill(); }
+    // cabeza
+    c.beginPath(); c.ellipse(20,-13,10,7,-.12,0,6.3);
+    pintar(c, relleno(c, col, -21, -6), L, 2.4);
+    c.beginPath(); c.moveTo(26,-14); c.quadraticCurveTo(33,-12,26,-9); c.closePath();
+    pintar(c, claro(col,.2), L, 1.8);
+    // papada
+    c.beginPath(); c.ellipse(20,-7,6,3.6,.2,0,6.3); pintar(c,"#D9834A", L, 1.8);
+    ojo(c, 22,-16, 3.6, col, o||{});
+  },
+  mamifero(c, f, o){
+    const col = "#9A7350", L = pluma(c, col), on = Math.sin(f*2)*2;
+    c.strokeStyle = L; c.lineWidth = 6;
+    c.beginPath(); c.moveTo(-12,-12); c.quadraticCurveTo(-26,-14+on,-28,-24); c.stroke();
+    c.strokeStyle = oscuro(col,.15); c.lineWidth = 3.4;
+    c.beginPath(); c.moveTo(-12,-12); c.quadraticCurveTo(-26,-14+on,-28,-24); c.stroke();
+    for (const px of [-5,9]) for (const s of [0,1])
+      hueso(c, px, -10, px+2, -1+s, 5, s? oscuro(col,.28): col, L);
+    // cuerpo peludo
+    c.beginPath();
+    c.moveTo(-14,-12);
+    for (let i=0;i<=12;i++){
+      const t=i/12, x=-14+t*30, y=-12-Math.sin(t*Math.PI)*11 - (i%2?1.6:0);
+      c.lineTo(x,y);
+    }
+    c.quadraticCurveTo(18,-6,-2,-5); c.closePath();
+    pintar(c, relleno(c, col, -26, -4), L, 2.6);
+    c.beginPath(); c.ellipse(2,-8,11,4,0,0,6.3); pintar(c, claro(col,.35), null);
+    // cabeza con orejas
+    c.beginPath(); c.ellipse(17,-15,9.5,8,-.1,0,6.3);
+    pintar(c, relleno(c, col, -24, -7), L, 2.4);
+    for (const s of [-1,1]){
+      c.beginPath(); c.ellipse(14+s*2,-22+s*1.5,4.2,5,s*.3,0,6.3);
+      pintar(c, claro(col,.1), L, 1.8);
+    }
+    c.beginPath(); c.moveTo(24,-15); c.quadraticCurveTo(30,-13,24,-10); c.closePath();
+    pintar(c, "#C4907A", L, 1.8);
+    c.strokeStyle = L; c.lineWidth = 1;
+    for (let i=-1;i<=1;i++){ c.beginPath(); c.moveTo(26,-13); c.lineTo(36,-15+i*4); c.stroke(); }
+    ojo(c, 20,-17, 3.4, col, o||{});
+  },
+  pez(c, f, o){
+    const col = "#D8B14C", L = pluma(c, col), on = Math.sin(f*3)*4;
+    // cola
+    c.beginPath();
+    c.moveTo(-13,-13); c.lineTo(-30,-22+on); c.lineTo(-26,-13); c.lineTo(-30,-4+on); c.closePath();
+    pintar(c, relleno(c,"#C9922F",-24,-2), L, 2.2);
+    // aleta dorsal
+    c.beginPath(); c.moveTo(-6,-20); c.lineTo(2,-30); c.lineTo(10,-19); c.closePath();
+    pintar(c, "#C9922F", L, 2.2);
+    // cuerpo
+    c.beginPath(); c.ellipse(0,-13,17,10,0,0,6.3);
+    pintar(c, relleno(c, col, -24, -2), L, 2.8);
+    conRecorte(c, cc=>{cc.ellipse(0,-13,17,10,0,0,6.3);}, cc=>{
+      escamas(cc, -16, 16, -22, -4, "rgba(120,80,20,.35)");
+    });
+    // branquia y aleta lateral
+    c.strokeStyle = L; c.lineWidth = 2;
+    c.beginPath(); c.arc(8,-13,7,-1.1,1.1); c.stroke();
+    c.beginPath(); c.moveTo(1,-11); c.quadraticCurveTo(-4,-3,4,-6); c.closePath();
+    pintar(c, "#C9922F", L, 1.8);
+    ojo(c, 12,-15, 3.4, col, o||{});
+  },
+  carrona(c, f, o){
+    const hueso_ = "#EFE6CE", L = "#8A7C5E";
+    // columna
+    c.strokeStyle = L; c.lineWidth = 6; c.lineCap="round";
+    c.beginPath(); c.moveTo(-22,-10); c.quadraticCurveTo(0,-16,20,-11); c.stroke();
+    c.strokeStyle = hueso_; c.lineWidth = 3.6;
+    c.beginPath(); c.moveTo(-22,-10); c.quadraticCurveTo(0,-16,20,-11); c.stroke();
+    // costillas
+    for (let i=0;i<5;i++){
+      const x = -18 + i*8, h = 15 - Math.abs(i-2)*2.4;
+      c.strokeStyle = L; c.lineWidth = 4.6;
+      c.beginPath(); c.moveTo(x,-13); c.quadraticCurveTo(x-5,-13+h*.7, x+1,-13+h); c.stroke();
+      c.strokeStyle = hueso_; c.lineWidth = 2.6;
+      c.beginPath(); c.moveTo(x,-13); c.quadraticCurveTo(x-5,-13+h*.7, x+1,-13+h); c.stroke();
+    }
+    // cráneo
+    c.beginPath();
+    c.moveTo(20,-16); c.quadraticCurveTo(38,-18,42,-8); c.quadraticCurveTo(34,-2,22,-4);
+    c.closePath();
+    pintar(c, relleno(c, hueso_, -20, -2), L, 2.4);
+    c.fillStyle = "#5C5240";
+    c.beginPath(); c.ellipse(28,-11,4,3.4,0,0,6.3); c.fill();
+    c.strokeStyle = L; c.lineWidth = 1.4;
+    for (let i=0;i<4;i++){ c.beginPath(); c.moveTo(30+i*3,-4); c.lineTo(31+i*3,-1); c.stroke(); }
+    // hueso suelto
+    c.strokeStyle = L; c.lineWidth = 5;
+    c.beginPath(); c.moveTo(-30,-3); c.lineTo(-14,-6); c.stroke();
+    c.strokeStyle = hueso_; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(-30,-3); c.lineTo(-14,-6); c.stroke();
+    for (const [bx,by] of [[-31,-3],[-13,-6]]) bolita(c,bx,by,3.4,hueso_,L);
+  }
+};
+
+/* =========================================================
+   DEPREDADORES ESPECIALES
+   ========================================================= */
+function dPterosaurio(c, p, o){
+  const col = (o && o.base) || "#C9B091", det = (o && o.det) || "#8A6B4C";
+  const L = pluma(c, col), ala = Math.sin(p*1.15);
+  const membrana = mezcla(det, "#000000", .08);
+  for (const s of [-1, 1]){
+    const punta = s * (86 + ala*6), alto = -30 - ala*30;
+    c.beginPath();
+    c.moveTo(0,-16);
+    c.quadraticCurveTo(s*44, alto - 16, punta, alto);
+    c.quadraticCurveTo(s*52, alto + 26, s*16, 4);
+    c.closePath();
+    pintar(c, membrana, L, 2.6);
+    c.strokeStyle = "rgba(255,255,255,.22)"; c.lineWidth = 2;
+    for (let i=1;i<=3;i++){
+      c.beginPath(); c.moveTo(s*10,-14);
+      c.quadraticCurveTo(s*(28+i*10), alto*.5 - 6, punta*(.5+i*.16), alto*(.55+i*.14));
+      c.stroke();
+    }
+    // dedo alar
+    c.strokeStyle = L; c.lineWidth = 4.5;
+    c.beginPath(); c.moveTo(s*10,-14); c.quadraticCurveTo(s*46, alto-14, punta, alto); c.stroke();
+  }
+  // cuerpo
+  c.beginPath(); c.ellipse(0,-14,14,20,0,0,6.3);
+  pintar(c, relleno(c, col, -34, 6), L, 2.8);
+  // patas recogidas
+  for (const s of [-1,1]) hueso(c, s*5, 2, s*10, 16, 4, oscuro(col,.2), L);
+  // cuello y cabeza
+  hueso(c, 6,-26, 18,-38, 9, col, L);
+  c.beginPath(); c.ellipse(22,-42,12,9,-.2,0,6.3);
+  pintar(c, relleno(c, col, -54, -32), L, 2.6);
+  // pico largo
+  c.beginPath();
+  c.moveTo(30,-46); c.quadraticCurveTo(56,-40,62,-34); c.quadraticCurveTo(50,-32,28,-36);
+  c.closePath();
+  pintar(c, relleno(c, claro(col,.18), -50, -30), L, 2.4);
+  // cresta hacia atrás
+  c.beginPath();
+  c.moveTo(16,-48); c.quadraticCurveTo(-8,-64,-18,-52); c.quadraticCurveTo(2,-48,14,-42);
+  c.closePath();
+  pintar(c, relleno(c, det, -66, -42), L, 2.4);
+  ojo(c, 26,-45, 4.2, col, o||{});
+}
+function dCocodrilo(c, p, emer, o){
+  const col = (o && o.base) || "#5A6E48", det = (o && o.det) || "#31402A";
+  const L = pluma(c, col), on = Math.sin(p*1.5)*3;
+  const h = 6 + emer*20;
+  // cola sinuosa
+  c.strokeStyle = L; c.lineWidth = 17;
+  c.beginPath(); c.moveTo(-20,-h*.5); c.quadraticCurveTo(-52,-h*.5+on,-74,-h*.2-on); c.stroke();
+  c.strokeStyle = col; c.lineWidth = 12;
+  c.beginPath(); c.moveTo(-20,-h*.5); c.quadraticCurveTo(-52,-h*.5+on,-74,-h*.2-on); c.stroke();
+  // lomo
+  c.beginPath(); c.ellipse(0,-h*.55,42,h*.55+9,0,0,6.3);
+  pintar(c, relleno(c, col, -h-14, 4), L, 3);
+  // escudos dorsales
+  for (let f=0; f<2; f++) for (let i=0;i<7;i++){
+    const x = -32 + i*11, y = -h*.75 - f*8;
+    c.beginPath(); c.moveTo(x-5,y); c.lineTo(x,y-7-emer*3); c.lineTo(x+5,y); c.closePath();
+    pintar(c, claro(det, f ? .2 : .05), L, 1.6);
+  }
+  // hocico largo
+  c.beginPath();
+  c.moveTo(30,-h*.7); c.lineTo(78,-h*.62); c.quadraticCurveTo(88,-h*.5,78,-h*.34);
+  c.lineTo(30,-h*.2); c.closePath();
+  pintar(c, relleno(c, col, -h-10, 2), L, 2.8);
+  if (emer > .3){
+    c.fillStyle = "#FFF9E8"; c.strokeStyle = "rgba(80,60,30,.5)"; c.lineWidth = 1;
+    for (let i=0;i<7;i++){
+      const x = 36+i*6;
+      c.beginPath(); c.moveTo(x,-h*.32); c.lineTo(x+2.6,-h*.32+6); c.lineTo(x+5,-h*.32); c.closePath();
+      c.fill(); c.stroke();
+    }
+  }
+  // fosas nasales y ojos sobresalidos
+  bolita(c, 74,-h*.72, 4, claro(col,.15), L);
+  c.beginPath(); c.ellipse(30,-h-2,7,6,0,0,6.3);
+  pintar(c, relleno(c, col, -h-12, -h+4), L, 2.2);
+  ojo(c, 31,-h-3, 4.4, col, o||{});
+}
+function dMosasaurio(c, p, emer, o){
+  const col = (o && o.base) || "#3E5C6E", det = (o && o.det) || "#22343F";
+  const L = pluma(c, col), on = Math.sin(p*1.6)*4;
+  const h = 8 + emer*22;
+  // cola con aleta
+  c.strokeStyle = L; c.lineWidth = 19;
+  c.beginPath(); c.moveTo(-24,-h*.5); c.quadraticCurveTo(-56,-h*.5+on,-78,-h*.3-on); c.stroke();
+  c.strokeStyle = col; c.lineWidth = 14;
+  c.beginPath(); c.moveTo(-24,-h*.5); c.quadraticCurveTo(-56,-h*.5+on,-78,-h*.3-on); c.stroke();
+  c.beginPath();
+  c.moveTo(-74,-h*.3-on); c.lineTo(-96,-h*.3-on-18); c.lineTo(-90,-h*.3-on); c.lineTo(-96,-h*.3-on+12);
+  c.closePath();
+  pintar(c, det, L, 2.4);
+  // cuerpo
+  c.beginPath(); c.ellipse(0,-h*.6,46,h*.6+11,0,0,6.3);
+  pintar(c, relleno(c, col, -h-18, 4), L, 3.2);
+  conRecorte(c, cc=>{cc.ellipse(0,-h*.6,46,h*.6+11,0,0,6.3);}, cc=>{
+    rayas(cc, -38, 34, -h-16, 2, 6, "rgba(15,30,40,.45)", 6, 4);
+  });
+  // aleta
+  c.beginPath(); c.moveTo(4,-h*.3); c.quadraticCurveTo(-6,h*.4+12,16,-h*.15); c.closePath();
+  pintar(c, det, L, 2.2);
+  // cabeza y mandíbulas
+  c.beginPath();
+  c.moveTo(34,-h*.95); c.quadraticCurveTo(74,-h*.9,86,-h*.55);
+  c.quadraticCurveTo(70,-h*.35,34,-h*.35); c.closePath();
+  pintar(c, relleno(c, col, -h-16, 0), L, 2.8);
+  if (emer > .25){
+    c.beginPath();
+    c.moveTo(38,-h*.42); c.quadraticCurveTo(70,-h*.3,84,-h*.5);
+    c.quadraticCurveTo(70,-h*.06,38,-h*.16); c.closePath();
+    pintar(c, relleno(c, oscuro(col,.18), -h*.5, 2), L, 2.4);
+    c.fillStyle = "#FFF9E8"; c.strokeStyle="rgba(40,60,70,.6)"; c.lineWidth=1;
+    for (let i=0;i<8;i++){
+      const x = 42+i*5.4, y = -h*.4 + i*.5;
+      c.beginPath(); c.moveTo(x,y); c.lineTo(x+2.4,y+7); c.lineTo(x+4.8,y); c.closePath(); c.fill(); c.stroke();
+    }
+  }
+  ojo(c, 46,-h*.82, 5, col, o||{});
+}
+
+
+
+/* =======================================================
+   DATOS
+   ======================================================= */
+const MODO_TV = false; /*__MODO__*/
+const CAJA = {
+  triceratops:[-107,-140,137,3], stegosaurus:[-133,-129,98,4], anquilosaurio:[-130,-68,103,2],
+  braquiosaurio:[-131,-223,102,5], tiranosaurio:[-118,-161,141,6], velociraptor:[-135,-135,121,5],
+  espinosaurio:[-122,-180,149,5], carnotauro:[-120,-178,117,6], dilofosaurio:[-118,-155,117,5]
+};
+// factor para que ninguna especie quede gigante ni diminuta dentro del juego
+const TALLA = {
+  triceratops:.89, stegosaurus:.95, anquilosaurio:1.53, braquiosaurio:.63,
+  tiranosaurio:.80, velociraptor:.92, espinosaurio:.74, carnotauro:.74, dilofosaurio:.83
+};
+
+const ESPECIES = {
+  triceratops:  { nombre:"Triceratops",  dieta:"herbivoro", vel:.95, defensa:"Embestida", desc:"Embiste con los cuernos",  color:"#7FA45C" },
+  stegosaurus:  { nombre:"Stegosaurus",  dieta:"herbivoro", vel:.88, defensa:"Coletazo",  desc:"Golpea con la cola de púas", color:"#6E9E77" },
+  anquilosaurio:{ nombre:"Anquilosaurio",dieta:"herbivoro", vel:.82, defensa:"Coraza",    desc:"Se acoraza y nada lo daña", color:"#8A8358" },
+  braquiosaurio:{ nombre:"Braquiosaurio",dieta:"herbivoro", vel:.90, defensa:"Pisotón",   desc:"Sacude el suelo alrededor", color:"#8B9BB0" },
+  tiranosaurio: { nombre:"Tyrannosaurus",dieta:"carnivoro", vel:1.00,defensa:"Rugido",    desc:"Paraliza a todos del susto",color:"#7A8B5E" },
+  velociraptor: { nombre:"Velociraptor", dieta:"carnivoro", vel:1.18,defensa:"Sprint",    desc:"Corre a toda velocidad",    color:"#B4763C" },
+  espinosaurio: { nombre:"Espinosaurio", dieta:"carnivoro", vel:1.02,defensa:"Zambullida",desc:"Se sumerge y desaparece",   color:"#5C7EA0" },
+  carnotauro:   { nombre:"Carnotauro",   dieta:"carnivoro", vel:1.10,defensa:"Carrera",   desc:"Arrasa con todo al correr", color:"#A04A3A" },
+  dilofosaurio: { nombre:"Dilofosaurio", dieta:"carnivoro", vel:1.06,defensa:"Escupitajo",desc:"Ciega al depredador cercano",color:"#6FA05A" }
+};
+const ORDEN_HERB = ["triceratops","stegosaurus","anquilosaurio","braquiosaurio"];
+const ORDEN_CARN = ["tiranosaurio","velociraptor","espinosaurio","carnotauro","dilofosaurio"];
+
+const ESCENARIOS = [
+  { id:"jungla", nombre:"Jungla Jurásica", texto:"Verde, húmeda y llena de helechos.",
+    suelo:"#3F7C4E", manchas:"rgba(122,166,98,.35)", orilla:"#C8B478", agua1:"#5CC3DE", agua2:"#2E86A8",
+    vegetacion:"palmera", nVeg:32, nRocas:18, nMatas:15, rio:true, nCharcos:4, lava:0,
+    sed:1.0, vineta:"rgba(8,32,20,.35)", fauna:["raptor","pteranodon"], raiz:146.83, modo:"mayor" },
+  { id:"pantano", nombre:"Pantano Cretácico", texto:"Cuidado con lo que se mueve bajo el agua.",
+    suelo:"#3A6242", manchas:"rgba(84,120,72,.45)", orilla:"#7C6E45", agua1:"#4E8F72", agua2:"#26543F",
+    vegetacion:"seco", nVeg:26, nRocas:12, nMatas:20, rio:true, nCharcos:11, lava:0,
+    sed:.9, vineta:"rgba(6,26,18,.45)", fauna:["raptor","sarcosuchus","pteranodon"], raiz:110.00, modo:"menor" },
+  { id:"desierto", nombre:"Desierto de Gobi", texto:"Casi no hay agua. Busca los oasis.",
+    suelo:"#D9B473", manchas:"rgba(196,152,88,.45)", orilla:"#B08D4F", agua1:"#63C8DA", agua2:"#2E86A8",
+    vegetacion:"cicada", nVeg:20, nRocas:26, nMatas:8, rio:false, nCharcos:5, lava:0,
+    sed:1.75, vineta:"rgba(120,80,20,.32)", fauna:["raptor","quetzal","alosaurio"], raiz:164.81, modo:"menor" },
+  { id:"montana", nombre:"Montañas Nevadas", texto:"Rocas altas y depredadores rápidos.",
+    suelo:"#7C8C7A", manchas:"rgba(206,214,206,.4)", orilla:"#8E9585", agua1:"#8AD4E8", agua2:"#3D8CAB",
+    vegetacion:"conifera", nVeg:30, nRocas:32, nMatas:11, rio:true, nCharcos:5, lava:0,
+    sed:1.1, vineta:"rgba(30,44,54,.4)", fauna:["alosaurio","quetzal","raptor"], raiz:98.00, modo:"mayor" },
+  { id:"volcan", nombre:"Tierras Volcánicas", texto:"No pises la lava. Aquí manda el más grande.",
+    suelo:"#5A4038", manchas:"rgba(96,66,54,.5)", orilla:"#3E2C25", agua1:"#57B4C4", agua2:"#2A6E80",
+    vegetacion:"quemado", nVeg:18, nRocas:30, nMatas:7, rio:false, nCharcos:4, lava:6,
+    sed:1.5, vineta:"rgba(60,14,6,.45)", fauna:["tiranosaurio","alosaurio","quetzal"], raiz:130.81, modo:"menor" }
+];
+const ETAPAS = [
+  { nombre:"Cría", esc:.50 }, { nombre:"Juvenil", esc:.66 },
+  { nombre:"Subadulto", esc:.83 }, { nombre:"Adulto", esc:1.00 }
+];
+const PLANTAS = ["helecho","fruto","cicada"];
+const CARNES  = ["lagarto","carrona","pez","mamifero"];
+
+// ---- fauna herbívora que pasta por el mapa y el carnívoro puede cazar ----
+const HERBI = {
+  protoceratops:{ nombre:"Protoceratops", dib:"triceratops",   esc:.42, etapaMin:1, vel:96,
+                  col:{base:"#B49A6A", vientre:"#E8DEB8", adorno:"#8E7A50"}, comida:42, puntos:25 },
+  kentrosaurio: { nombre:"Kentrosaurio",  dib:"stegosaurus",   esc:.62, etapaMin:2, vel:84,
+                  col:{base:"#5E8A96", vientre:"#C6DEE2", placa:"#D9A63C"},  comida:58, puntos:40 },
+  diplodocus:   { nombre:"Diplodocus",    dib:"braquiosaurio", esc:.78, etapaMin:3, vel:72,
+                  col:{base:"#9A7A5E", vientre:"#DCC8A8", adorno:"#6E543E"}, comida:74, puntos:60 }
+};
+const ORDEN_HERBI = ["protoceratops","kentrosaurio","diplodocus"];
+
+// ---- dificultad ----
+const DIFICULTADES = [
+  { nombre:"FÁCIL",   velDep:.82, extraDep:-1, gasto:.70, castigo:6,  cazaDep:340, recarga:.75, compVel:1.00 },
+  { nombre:"NORMAL",  velDep:1,   extraDep:0,  gasto:1,   castigo:15, cazaDep:350, recarga:1,   compVel:1.12 },
+  { nombre:"DIFÍCIL", velDep:1.18,extraDep:1,  gasto:1.35,castigo:26, cazaDep:400, recarga:1.30,compVel:1.25 }
+];
+
+const VEL_BASE = 269;   // velocidad del jugador (+25%)
+const ACEL = 11;        // que tan rapido la velocidad alcanza al mando: mas alto = mas seco
+const VEL_DEP  = 1.22;  // los depredadores suben igual para no romper el equilibrio
+
+
+const TIPO_DEP = {
+  raptor:      { clase:"tierra", vel:104, tam:.70, dib:"velociraptor", col:{base:"#D9743C",vientre:"#F2CFA0"} },
+  alosaurio:   { clase:"tierra", vel:100, tam:.80, dib:"carnotauro",   col:{base:"#9E4E3A",vientre:"#E4A98C"} },
+  tiranosaurio:{ clase:"tierra", vel:96,  tam:.92, dib:"tiranosaurio", col:{base:"#5E5A48",vientre:"#BCB694"} },
+  pteranodon:  { clase:"aire",   vel:132, tam:.85, col:{base:"#C9B091",det:"#8A6B4C"} },
+  quetzal:     { clase:"aire",   vel:142, tam:1.05,col:{base:"#9E8FA8",det:"#5E4F68"} },
+  sarcosuchus: { clase:"agua",   vel:118, tam:.95, col:{base:"#5A6E48",det:"#31402A"} },
+  mosasaurio:  { clase:"agua",   vel:126, tam:1.05,col:{base:"#3E5C6E",det:"#22343F"} }
+};
+const NOMBRE_DEP = { raptor:"Velociraptor", alosaurio:"Alosaurio", tiranosaurio:"Tyrannosaurus",
+  pteranodon:"Pteranodon", quetzal:"Quetzalcoatlus", sarcosuchus:"Sarcosuchus", mosasaurio:"Mosasaurio" };
+
+/* =======================================================
+   Caché de sprites
+   Cada criatura se dibuja una sola vez en una imagen y
+   después se reutiliza. Es lo que permite que el juego
+   vaya fluido en televisores de gama baja.
+   ======================================================= */
+const CAJA_COMIDA = {
+  helecho:[-24,-36,28,3], fruto:[-20,-55,19,2], cicada:[-27,-62,28,1], lagarto:[-39,-23,31,4],
+  mamifero:[-31,-30,36,4], pez:[-32,-32,18,0], carrona:[-36,-18,43,4]
+};
+const CAJA_ESP = {
+  pterosaurio:[-94,-64,93,20], cocodrilo:[-79,-39,84,10], mosasaurio:[-98,-49,87,14]
+};
+const CACHE = {};
+const FASES = 8, TAU = 6.283185307;
+let DETALLE = true, autoCalidad = true, RES = 1, nCache = 0;
+
+function faseIndice(paso, n){
+  const t = ((paso % TAU) + TAU) % TAU;
+  return Math.floor(t / TAU * n) % n;
+}
+const fasePaso = (i, n) => (i + .5) / n * TAU;
+function limpiarCache(){ for (const kk in CACHE) delete CACHE[kk]; nCache = 0; }
+function sprite(clave, caja, escT, pintarEn){
+  let s = CACHE[clave];
+  if (s) return s;
+  if (nCache > 240) limpiarCache();
+  const m = 6;
+  const w = Math.max(2, Math.ceil((caja[2]-caja[0])*escT) + m*2);
+  const h = Math.max(2, Math.ceil((caja[3]-caja[1])*escT) + m*2);
+  const cv = document.createElement("canvas");
+  cv.width = Math.max(2, Math.round(w*RES));
+  cv.height = Math.max(2, Math.round(h*RES));
+  const c = cv.getContext("2d");
+  c.setTransform(RES,0,0,RES,0,0);
+  c.translate(m - caja[0]*escT, m - caja[1]*escT);
+  c.scale(escT, escT);
+  try { pintarEn(c); } catch(e){}
+  s = { cv:cv, ox:(m - caja[0]*escT), oy:(m - caja[1]*escT), w:w, h:h };
+  CACHE[clave] = s; nCache++;
+  return s;
+}
+function ponerSprite(c, s, x, y, mira, alpha){
+  c.save();
+  c.translate(x, y);
+  if (mira < 0) c.scale(-1, 1);
+  if (alpha !== undefined && alpha < 1) c.globalAlpha = alpha;
+  c.drawImage(s.cv, -s.ox, -s.oy, s.w, s.h);
+  c.restore();
+}
+
+/* =======================================================
+   Lienzo
+   ======================================================= */
+const lienzo = document.getElementById("lienzo");
+const ctx = lienzo.getContext("2d");
+const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let anchoCSS=0, altoCSS=0, escala=1, vistaW=900, vistaH=600, k=1;
+function ajustar(){
+  anchoCSS = window.innerWidth; altoCSS = window.innerHeight;
+  // Nunca se dibuja a más de ANCHO_MAX píxeles: en un televisor 4K renderizar a
+  // resolución nativa hunde el rendimiento y desde el sofá no se nota la diferencia.
+  const ANCHO_MAX = 1600;
+  const f = Math.min(1, ANCHO_MAX / Math.max(1, anchoCSS));
+  lienzo.width = Math.max(320, Math.round(anchoCSS*f));
+  lienzo.height = Math.max(240, Math.round(altoCSS*f));
+  const base = anchoCSS > altoCSS ? 1020 : 680;
+  escala = lienzo.width/base;
+  vistaW = lienzo.width/escala; vistaH = lienzo.height/escala; k = vistaW/anchoCSS;
+  RES = Math.min(1.3, Math.max(.75, escala));
+  limpiarCache();
+}
+window.addEventListener("resize", ajustar); ajustar();
+if (!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){
+    this.moveTo(x+r,y); this.arcTo(x+w,y,x+w,y+h,r); this.arcTo(x+w,y+h,x,y+h,r);
+    this.arcTo(x,y+h,x,y,r); this.arcTo(x,y,x+w,y,r); this.closePath(); return this; };
+}
+
+/* =======================================================
+   Utilidades
+   ======================================================= */
+let semilla = 987654321;
+const azar = () => { semilla = (semilla*1664525+1013904223)%4294967296; return semilla/4294967296; };
+const entre = (a,b) => a + azar()*(b-a);
+const d2 = (ax,ay,bx,by) => (ax-bx)*(ax-bx)+(ay-by)*(ay-by);
+const lim = (v,a,b) => v<a?a:(v>b?b:v);
+const elegir = a => a[Math.floor(azar()*a.length)];
+
+/* =======================================================
+   Mundo
+   ======================================================= */
+const MUNDO = { w:2800, h:2200 };
+const CUEVA = { x:340, y:360, r:110 };
+let esc = ESCENARIOS[0];
+let vegetales=[], rocas=[], matas=[], hierbas=[], charcos=[], lavas=[];
+function rioY(x){ return 1350 + 280*Math.sin(x/450); }
+const ANCHO_RIO = 96;
+function enRio(x,y){ return esc.rio && Math.abs(y-rioY(x)) < ANCHO_RIO; }
+function enAgua(x,y){
+  if (enRio(x,y)) return true;
+  for (const c of charcos) if (d2(x,y,c.x,c.y) < c.r*c.r) return true;
+  return false;
+}
+function enLava(x,y){ for (const l of lavas) if (d2(x,y,l.x,l.y) < l.r*l.r) return true; return false; }
+function enCueva(x,y){ return d2(x,y,CUEVA.x,CUEVA.y) < CUEVA.r*CUEVA.r; }
+function libre(x,y,m){
+  if (enAgua(x,y) || enLava(x,y)) return false;
+  if (d2(x,y,CUEVA.x,CUEVA.y) < (CUEVA.r+m)*(CUEVA.r+m)) return false;
+  for (const v of vegetales) if (d2(x,y,v.x,v.y) < 108*108) return false;
+  for (const r of rocas) if (d2(x,y,r.x,r.y) < 108*108) return false;
+  return true;
+}
+function puntoLibre(m=60){
+  for (let i=0;i<400;i++){
+    const x = entre(130,MUNDO.w-130), y = entre(130,MUNDO.h-130);
+    if (libre(x,y,m)) return {x,y};
+  }
+  return {x:1400,y:1000};
+}
+function puntoAgua(){
+  for (let i=0;i<300;i++){
+    const x = entre(130,MUNDO.w-130), y = entre(130,MUNDO.h-130);
+    if (enAgua(x,y)) return {x,y};
+  }
+  return null;
+}
+function generarMundo(escenario){
+  esc = escenario;
+  semilla = 987654321 + ESCENARIOS.indexOf(escenario)*7919;
+  vegetales=[]; rocas=[]; matas=[]; hierbas=[]; charcos=[]; lavas=[];
+  for (let i=0;i<esc.nCharcos;i++){
+    const x=entre(200,MUNDO.w-200), y=entre(200,MUNDO.h-200);
+    if (d2(x,y,CUEVA.x,CUEVA.y) < 260*260) continue;
+    charcos.push({x,y,r:entre(58,96)});
+  }
+  for (let i=0;i<esc.lava;i++){
+    const x=entre(250,MUNDO.w-250), y=entre(250,MUNDO.h-250);
+    if (d2(x,y,CUEVA.x,CUEVA.y) < 400*400) continue;
+    lavas.push({x,y,r:entre(70,118),fase:azar()*6});
+  }
+  for (let i=0;i<esc.nVeg;i++){ const p=puntoLibre(70);
+    vegetales.push({x:p.x,y:p.y,alto:entre(100,160),giro:entre(-.22,.22),r:24,sem:azar()}); }
+  for (let i=0;i<esc.nRocas;i++){ const p=puntoLibre(70); rocas.push({x:p.x,y:p.y,r:entre(26,46),tono:azar()}); }
+  for (let i=0;i<esc.nMatas;i++){ const p=puntoLibre(60); matas.push({x:p.x,y:p.y,r:entre(62,86)}); }
+  for (let i=0;i<260;i++) hierbas.push({x:entre(0,MUNDO.w),y:entre(0,MUNDO.h),l:entre(6,15),g:azar()});
+}
+
+/* =======================================================
+   Estado
+   ======================================================= */
+const dino = { id:"triceratops", x:0, y:0, vx:0, vy:0, mira:1, paso:0, hambre:100, sed:100,
+  invul:0, enfermo:0, susto:0, prof:0, defTiempo:0, defRecarga:0, defMax:12, oculto:false };
+let comidas=[], depredadores=[], herbivoros=[], pasadizos=[], particulas=[], ceniza=[];
+let puntos=0, nivel=1, etapa=0, sacudida=0, bebiendo=0;
+let escIdx=0, desbloqueados=1, bloqueoViaje=0, dif=1;
+let hudH=100, hudS=100, avisoTxt="", avisoT=0;
+let defX=0, defY=0, defR=1, pauX=0, pauY=0, pauR=1, zonasClave="";
+
+/* ---- final del juego: buscar pareja, poner un huevo y defenderlo ---- */
+const NIDO = { x: CUEVA.x+150, y: CUEVA.y+130 };   // donde se dibuja el huevo
+const INCUBA = 80;                                  // segundos hasta que nace
+// solo los grandes carnívoros pueden devorar a un depredador aturdido
+const DEVORADORES = ["tiranosaurio", "espinosaurio", "carnotauro"];
+let mision = "ninguna";     // ninguna | buscar | guiar | anidar | fin
+let escPareja = -1, pareja = null, nido = null, repoDep = 0;
+let estado="inicio", efectosOn=true, musicaOn=true, tiempoEclosion=0;
+const PUNTOS_NIVEL = 130;
+// recarga de la defensa: lentisima de juvenil y cada vez mas rapida al crecer.
+// la cria no tiene defensa todavia.
+const RECARGA_ETAPA = [0, 20, 12, 6.5];
+const recargaMax = () => (RECARGA_ETAPA[etapa] || RECARGA_ETAPA[1]) * D().recarga;
+const cfg = () => ESPECIES[dino.id];
+const D = () => DIFICULTADES[dif];
+const escalaDino = () => ETAPAS[etapa].esc * TALLA[dino.id];
+const etapaDeNivel = n => n<3?0 : n<5?1 : n<7?2 : 3;
+const escenariosAbiertos = n => Math.min(ESCENARIOS.length, 1 + Math.floor(n/2));
+
+function nuevaComida(forzar){
+  const tipo = forzar || (azar()<.5 ? elegir(PLANTAS) : elegir(CARNES));
+  let p;
+  if (tipo === "pez"){ p = puntoAgua(); if (!p) return nuevaComida("carrona"); }
+  else p = puntoLibre(45);
+  return { x:p.x, y:p.y, tipo, viva:true, espera:0, fase:azar()*6, esCarne: CARNES.indexOf(tipo)>=0 };
+}
+function poblarComida(){
+  comidas = [];
+  for (let i=0;i<10;i++) comidas.push(nuevaComida(elegir(PLANTAS)));
+  for (let i=0;i<9;i++)  comidas.push(nuevaComida(elegir(CARNES)));
+}
+function nuevoDepredador(){
+  const nombre = elegir(esc.fauna), t = TIPO_DEP[nombre];
+  let p = null;
+  if (t.clase === "agua") p = puntoAgua();
+  if (!p) for (let i=0;i<60;i++){ const q = puntoLibre(50);
+    if (d2(q.x,q.y,CUEVA.x,CUEVA.y) > 640*640){ p=q; break; } }
+  if (!p) p = {x:MUNDO.w-400, y:MUNDO.h-400};
+  return { nombre, clase:t.clase, x:p.x, y:p.y, mira:1, paso:0, altura: t.clase==="aire"?130:0,
+    destino:{x:p.x,y:p.y}, esperar:entre(0,2), cazando:false, aturdido:0, ciego:0, emergido:0 };
+}
+function ajustarDepredadores(){
+  const objetivo = Math.max(1, Math.min(6, 2 + Math.floor((nivel-1)/2) + D().extraDep));
+  while (depredadores.length > objetivo) depredadores.pop();
+  while (depredadores.length < objetivo) depredadores.push(nuevoDepredador());
+}
+
+/* ---- fauna herbívora ---- */
+function nuevoHerbivoro(tipo){
+  const p = puntoLibre(70);
+  return { tipo: tipo || elegir(ORDEN_HERBI), x:p.x, y:p.y, mira:1, paso:0,
+           destino:{x:p.x,y:p.y}, esperar:entre(0,3), huyendo:false, espera:0, viva:true };
+}
+function poblarHerbivoros(){
+  herbivoros = [];
+  const n = 3 + Math.floor(azar()*3);
+  for (let i=0;i<n;i++) herbivoros.push(nuevoHerbivoro(ORDEN_HERBI[i % 3]));
+}
+
+/* ---- pasadizos hacia otros territorios ---- */
+function generarPasadizos(){
+  pasadizos = [];
+  for (let d=0; d<desbloqueados && d<ESCENARIOS.length; d++){
+    if (d === escIdx) continue;
+    let p = null;
+    for (let i=0;i<250;i++){
+      const q = puntoLibre(100);
+      if (d2(q.x,q.y,CUEVA.x,CUEVA.y) < 560*560) continue;
+      let lejos = true;
+      for (const z of pasadizos) if (d2(q.x,q.y,z.x,z.y) < 460*460) lejos = false;
+      if (lejos){ p = q; break; }
+    }
+    if (!p) p = puntoLibre(90);
+    pasadizos.push({ destino:d, x:p.x, y:p.y });
+  }
+}
+function prepararEscenario(idx){
+  escIdx = Math.max(0, Math.min(ESCENARIOS.length-1, idx));
+  generarMundo(ESCENARIOS[escIdx]);
+  etapa = etapaDeNivel(nivel);
+  poblarComida(); poblarHerbivoros();
+  depredadores = []; ajustarDepredadores();
+  generarPasadizos();
+  dino.x = CUEVA.x+150; dino.y = CUEVA.y+140;
+  dino.prof = 0; dino.invul = 2.4; bloqueoViaje = 1.6;
+  ceniza = [];
+  if (esc.lava > 0) for (let i=0;i<70;i++)
+    ceniza.push({x:azar()*MUNDO.w, y:azar()*MUNDO.h, v:entre(18,44), r:entre(1.4,3.2)});
+  colocarPareja();
+}
+function viajar(destino){
+  if (destino === escIdx) return;
+  estado = "territorio";
+  prepararEscenario(destino);
+  document.getElementById("terrNombre").textContent = esc.nombre;
+  document.getElementById("terrTexto").textContent = esc.texto;
+  irA(pTerr);
+  sNivel();
+}
+function partidaNueva(){
+  puntos=0; nivel=1; desbloqueados = escenariosAbiertos(1);
+  dino.hambre=100; dino.sed=100; dino.enfermo=0; dino.susto=0;
+  dino.defTiempo=0; dino.defRecarga=0; dino.mira=1; dino.paso=0; dino.vx=0; dino.vy=0;
+  hudH = 100; hudS = 100;
+  particulas=[]; sacudida=0;
+  mision = "ninguna"; escPareja = -1; pareja = null; nido = null; repoDep = 0;
+  prepararEscenario(0);
+}
+
+/* =======================================================
+   Audio: efectos y música generada
+   ======================================================= */
+let audio = null, bufferRuido = null, mus = null;
+function abrirAudio(){
+  if (audio) { if (audio.state === "suspended") audio.resume(); return audio; }
+  try{
+    audio = new (window.AudioContext || window.webkitAudioContext)();
+    const n = audio.sampleRate * 0.5;
+    bufferRuido = audio.createBuffer(1, n, audio.sampleRate);
+    const d = bufferRuido.getChannelData(0);
+    for (let i=0;i<n;i++) d[i] = Math.random()*2-1;
+  }catch(e){ audio = null; }
+  return audio;
+}
+function tono(f, dur, tipo="square", vol=.08){
+  if (!efectosOn || !abrirAudio()) return;
+  try{
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.type = tipo; o.frequency.value = f;
+    g.gain.setValueAtTime(vol, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(.0001, audio.currentTime+dur);
+    o.connect(g); g.connect(audio.destination);
+    o.start(); o.stop(audio.currentTime+dur);
+  }catch(e){}
+}
+const sComer=()=>{tono(520,.09);setTimeout(()=>tono(780,.11),70);};
+const sMal=()=>{tono(200,.18,"sawtooth",.09);setTimeout(()=>tono(140,.24,"sawtooth",.09),140);};
+const sBeber=()=>tono(300+azar()*160,.11,"sine",.06);
+const sSusto=()=>{tono(170,.18,"sawtooth",.1);setTimeout(()=>tono(105,.3,"sawtooth",.1),120);};
+const sNivel=()=>[523,659,784,1046].forEach((f,i)=>setTimeout(()=>tono(f,.15,"triangle",.08),i*95));
+const sDef=()=>{tono(320,.14,"square",.1);setTimeout(()=>tono(460,.16,"square",.09),90);};
+const sCascara=()=>tono(680+azar()*200,.06,"square",.07);
+
+/* ---- música ---- */
+const MAYOR = [1, 9/8, 5/4, 3/2, 5/3, 2, 9/4, 5/2];
+const MENOR = [1, 6/5, 4/3, 3/2, 8/5, 2, 12/5, 8/3];
+const COMPAS = 2.4;   // segundos por compás
+function iniciarMusica(){
+  if (mus || !abrirAudio()) return;
+  mus = { maestro:audio.createGain(), calma:audio.createGain(), tension:audio.createGain(),
+          proximo: audio.currentTime + .15, n:0, enTension:false };
+  mus.maestro.gain.value = 0;
+  mus.calma.gain.value = 1; mus.tension.gain.value = 0;
+  mus.calma.connect(mus.maestro); mus.tension.connect(mus.maestro);
+  mus.maestro.connect(audio.destination);
+  mus.maestro.gain.linearRampToValueAtTime(.15, audio.currentTime + 2.5);
+}
+function voz(dest, f, t, dur, tipo, vol, ataque){
+  const o = audio.createOscillator(), g = audio.createGain();
+  o.type = tipo; o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + (ataque||.02));
+  g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g); g.connect(dest); o.start(t); o.stop(t + dur + .05);
+}
+function golpe(dest, t, dur, vol, hz){
+  const s = audio.createBufferSource(); s.buffer = bufferRuido;
+  const f = audio.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = hz;
+  const g = audio.createGain();
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  s.connect(f); f.connect(g); g.connect(dest); s.start(t); s.stop(t + dur + .02);
+}
+function compasCalma(t, n){
+  const R = esc.raiz, E = esc.modo === "mayor" ? MAYOR : MENOR;
+  const grados = [0, 4, 2, 3][n % 4];
+  const bajo = R/2 * E[grados];
+  voz(mus.calma, bajo, t, 1.9, "triangle", .13, .08);
+  voz(mus.calma, bajo*1.5, t + COMPAS/2, 1.1, "triangle", .07, .08);
+  // arpegio suave
+  const patron = [0,2,4,2,5,4,2,1];
+  for (let i=0;i<8;i++){
+    const f = R * E[(patron[i] + grados) % E.length];
+    voz(mus.calma, f, t + i*COMPAS/8, .42, "sine", .045, .015);
+  }
+  // melodía cada dos compases
+  if (n % 2 === 0){
+    const mel = [[0,4,2],[4,5,3],[2,3,4],[5,4,0]][(n/2) % 4];
+    mel.forEach((g2, i) => voz(mus.calma, R*2*E[g2], t + i*COMPAS/3, .55, "triangle", .055, .05));
+  }
+  golpe(mus.calma, t, .12, .05, 900);
+  golpe(mus.calma, t + COMPAS/2, .1, .035, 1400);
+}
+function compasTension(t, n){
+  const R = esc.raiz * .75, E = MENOR;
+  // pulso grave constante
+  for (let i=0;i<8;i++){
+    voz(mus.tension, R/2, t + i*COMPAS/8, .2, "sawtooth", .085, .01);
+    golpe(mus.tension, t + i*COMPAS/8, .09, i%2 ? .05 : .11, i%2 ? 2200 : 260);
+  }
+  // motivo ascendente que aprieta
+  const sub = [0,1,3,1,0,3,4,3];
+  for (let i=0;i<8;i++)
+    voz(mus.tension, R*2*E[sub[i]], t + i*COMPAS/8, .22, "square", .05, .01);
+  // acorde disonante al inicio del compás
+  voz(mus.tension, R*E[0], t, .9, "sawtooth", .06, .02);
+  voz(mus.tension, R*E[1]*1.02, t, .9, "sawtooth", .05, .02);
+  if (n % 2 === 1) voz(mus.tension, R*4, t + COMPAS*.75, .3, "square", .04, .01);
+}
+function programarMusica(){
+  if (!mus || !audio) return;
+  const horizonte = audio.currentTime + .3;
+  let guardia = 0;
+  while (mus.proximo < horizonte && guardia++ < 8){
+    try { compasCalma(mus.proximo, mus.n); compasTension(mus.proximo, mus.n); } catch(e){}
+    mus.proximo += COMPAS; mus.n++;
+  }
+}
+function ajustarMusica(perseguido, activa){
+  if (!mus) return;
+  const t = audio.currentTime;
+  if (perseguido !== mus.enTension){
+    mus.enTension = perseguido;
+    mus.calma.gain.cancelScheduledValues(t);
+    mus.tension.gain.cancelScheduledValues(t);
+    mus.calma.gain.setValueAtTime(mus.calma.gain.value, t);
+    mus.tension.gain.setValueAtTime(mus.tension.gain.value, t);
+    mus.calma.gain.linearRampToValueAtTime(perseguido ? 0 : 1, t + .7);
+    mus.tension.gain.linearRampToValueAtTime(perseguido ? 1 : 0, t + .7);
+  }
+  const objetivo = !musicaOn ? 0 : (activa ? .15 : .06);
+  if (Math.abs(mus.maestro.gain.value - objetivo) > .01){
+    mus.maestro.gain.cancelScheduledValues(t);
+    mus.maestro.gain.setValueAtTime(mus.maestro.gain.value, t);
+    mus.maestro.gain.linearRampToValueAtTime(objetivo, t + .5);
+  }
+}
+
+/* =======================================================
+   Controles: cruceta del control remoto y mando de juego
+   ======================================================= */
+const teclas = {};
+const COD_ATRAS = [4, 8, 27, 166, 461];
+const COD_OK = [13, 23, 32, 66];
+const esAtras = e => COD_ATRAS.indexOf(e.keyCode) >= 0 ||
+  ["Escape","Backspace","GoBack","BrowserBack"].indexOf(e.key) >= 0;
+const esOK = e => COD_OK.indexOf(e.keyCode) >= 0 ||
+  ["Enter"," ","Select","Accept"].indexOf(e.key) >= 0;
+
+/* ---------- pausa manteniendo OK ----------
+   ATRÁS ya no pausa: en Android TV ese botón lo atiende el sistema y cierra
+   el juego antes de que llegue aquí. Ahora se pausa manteniendo OK dos
+   segundos, y la defensa que se disparó al pulsar se devuelve. */
+const MANTENER_PAUSA = 2;
+const okMant = { activo:false, desde:0, usado:false, rec:0, tmp:0 };
+function pulsarOK(){
+  if (okMant.activo) return;
+  okMant.activo = true; okMant.desde = reloj; okMant.usado = false;
+  okMant.rec = dino.defRecarga; okMant.tmp = dino.defTiempo;
+  usarDefensa();
+}
+function soltarOK(){ okMant.activo = false; }
+function revisarPausaMantenida(){
+  if (!okMant.activo || okMant.usado) return;
+  if (estado !== "jugando"){ okMant.activo = false; return; }
+  if (reloj - okMant.desde < MANTENER_PAUSA) return;
+  okMant.usado = true;
+  dino.defRecarga = okMant.rec;         // no se pierde la defensa por pausar
+  dino.defTiempo = okMant.tmp;
+  pausar(true);
+}
+
+window.addEventListener("keydown", e => {
+  const t = (e.key || "").toLowerCase();
+  teclas[t] = true;
+  if (["arrowup","arrowdown","arrowleft","arrowright"," ","enter"].indexOf(t) >= 0) e.preventDefault();
+  if (esAtras(e)){
+    e.preventDefault();
+    // durante la partida no hacemos nada: en el televisor este botón cierra el juego
+    if (estado === "jugando" || estado === "eclosion") return;
+    atras(); return;
+  }
+  if (estado === "jugando"){
+    if (esOK(e)){ e.preventDefault(); if (!e.repeat) pulsarOK(); }
+  } else if (estado !== "eclosion"){
+    if (t === "arrowup") moverFoco("arriba");
+    else if (t === "arrowdown") moverFoco("abajo");
+    else if (t === "arrowleft") moverFoco("izq");
+    else if (t === "arrowright") moverFoco("der");
+    else if (esOK(e)){ e.preventDefault(); activarFoco(); }
+  }
+});
+window.addEventListener("keyup", e => {
+  teclas[(e.key || "").toLowerCase()] = false;
+  if (esOK(e)) soltarOK();
+});
+// red de seguridad: si el navegador atiende el ATRÁS por su cuenta, que retroceda
+// dentro de la página en vez de cerrarla
+try {
+  history.pushState({ juego:1 }, "");
+  window.addEventListener("popstate", () => {
+    try { history.pushState({ juego:1 }, ""); } catch(err){}
+    if (estado !== "jugando" && estado !== "eclosion") atras();
+  });
+} catch(err){}
+
+const mando = { dx:0, dy:0, prevA:false, prevB:false, prevStart:false, repite:0, hay:false };
+window.addEventListener("gamepadconnected", () => {
+  mando.hay = true; aviso("Mando conectado");
+});
+function leerMando(dt){
+  let dx=0, dy=0, a=false, b=false, start=false;
+  const lista = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (let i=0;i<lista.length;i++){
+    const gp = lista[i];
+    if (!gp || !gp.connected) continue;
+    mando.hay = true;
+    if (gp.axes.length >= 2){
+      if (Math.abs(gp.axes[0]) > .25) dx += gp.axes[0];
+      if (Math.abs(gp.axes[1]) > .25) dy += gp.axes[1];
+    }
+    const bt = gp.buttons || [];
+    const puls = n => bt[n] && (bt[n].pressed || bt[n].value > .5);
+    if (puls(12)) dy -= 1;
+    if (puls(13)) dy += 1;
+    if (puls(14)) dx -= 1;
+    if (puls(15)) dx += 1;
+    if (puls(0)) a = true;
+    if (puls(1)) b = true;
+    if (puls(9) || puls(3)) start = true;
+  }
+  const m = Math.hypot(dx,dy);
+  if (m > 1){ dx /= m; dy /= m; }
+  mando.dx = dx; mando.dy = dy;
+
+  if (a && !mando.prevA){ if (estado === "jugando") pulsarOK(); else if (estado !== "eclosion") activarFoco(); }
+  if (!a && mando.prevA) soltarOK();
+  if (b && !mando.prevB) atras();
+  if (start && !mando.prevStart){
+    if (estado === "jugando") pausar(true); else if (estado === "pausa") pausar(false);
+  }
+  mando.prevA = a; mando.prevB = b; mando.prevStart = start;
+
+  if (estado !== "jugando" && estado !== "eclosion"){
+    if (Math.abs(dx) > .5 || Math.abs(dy) > .5){
+      mando.repite -= dt;
+      if (mando.repite <= 0){
+        if (Math.abs(dx) > Math.abs(dy)) moverFoco(dx > 0 ? "der" : "izq");
+        else moverFoco(dy > 0 ? "abajo" : "arriba");
+        mando.repite = .22;
+      }
+    } else mando.repite = 0;
+  }
+}
+
+/* ---- joystick táctil: aparece donde pongas el dedo ---- */
+const pal = { activa:false, viva:false, id:null, cx:0, cy:0, x:0, y:0 };
+const R_PAL = 62;
+lienzo.addEventListener("pointerdown", e => {
+  if (estado !== "jugando" || pal.activa) return;
+  if (e.cancelable) e.preventDefault();
+  pal.activa = true; pal.id = e.pointerId; pal.viva = true;
+  pal.cx = pal.x = e.clientX; pal.cy = pal.y = e.clientY;
+  try { lienzo.setPointerCapture(e.pointerId); } catch(err){}
+}, { passive:false });
+lienzo.addEventListener("pointermove", e => {
+  if (pal.activa && e.pointerId === pal.id){
+    if (e.cancelable) e.preventDefault();
+    pal.x = e.clientX; pal.y = e.clientY; pal.viva = true;
+  }
+}, { passive:false });
+const soltarPal = e => { if (pal.activa && e.pointerId === pal.id) pal.activa = false; };
+lienzo.addEventListener("pointerup", soltarPal);
+/* red de seguridad: si el navegador cancela el gesto pero el dedo sigue apoyado,
+   solo soltamos la palanca cuando de verdad no queden punteros activos */
+lienzo.addEventListener("pointercancel", e => {
+  if (!pal.activa || e.pointerId !== pal.id) return;
+  pal.viva = false;
+  setTimeout(() => { if (!pal.viva) pal.activa = false; }, 120);
+});
+lienzo.addEventListener("lostpointercapture", e => {
+  if (pal.activa && e.pointerId === pal.id){
+    try { lienzo.setPointerCapture(e.pointerId); } catch(err){}
+  }
+});
+function dibujarPalanca(){
+  if (!pal.activa) return;
+  const cx = pal.cx*k, cy = pal.cy*k;
+  const px = pal.x-pal.cx, py = pal.y-pal.cy, d = Math.hypot(px,py) || 1;
+  const f = Math.min(d,R_PAL)/d;
+  ctx.strokeStyle = "rgba(255,243,214,.45)"; ctx.lineWidth = 4*k;
+  ctx.beginPath(); ctx.arc(cx,cy,R_PAL*k,0,TAU); ctx.stroke();
+  ctx.fillStyle = "rgba(255,243,214,.35)";
+  ctx.beginPath(); ctx.arc(cx+px*f*k, cy+py*f*k, 28*k, 0, TAU); ctx.fill();
+}
+function entrada(){
+  let dx=0, dy=0;
+  if (teclas["arrowleft"]||teclas["a"]) dx-=1;
+  if (teclas["arrowright"]||teclas["d"]) dx+=1;
+  if (teclas["arrowup"]||teclas["w"]) dy-=1;
+  if (teclas["arrowdown"]||teclas["s"]) dy+=1;
+  if (pal.activa){
+    const px = pal.x-pal.cx, py = pal.y-pal.cy, dd = Math.hypot(px,py);
+    if (dd > 12){ const f = Math.min(dd,R_PAL)/R_PAL; dx += px/dd*f; dy += py/dd*f; }
+  }
+  dx += mando.dx; dy += mando.dy;
+  const m = Math.hypot(dx,dy);
+  if (m > 1){ dx/=m; dy/=m; }
+  return {dx,dy};
+}
+
+/* =======================================================
+   Avisos y partículas
+   ======================================================= */
+function aviso(txt){ avisoTxt = txt; avisoT = 2.3; }
+function chispas(x,y,color,n=10,vel=120){
+  for (let i=0;i<n;i++){
+    const a=azar()*Math.PI*2, v=entre(vel*.35,vel);
+    particulas.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-40,vida:entre(.4,.8),max:.8,color,r:entre(2.5,5.5)});
+  }
+}
+
+/* =======================================================
+   Final del juego: pareja, huevo y nido
+   ======================================================= */
+function iniciarMision(){
+  mision = "buscar";
+  const opciones = [];
+  for (let i=0; i<desbloqueados && i<ESCENARIOS.length; i++) if (i !== escIdx) opciones.push(i);
+  escPareja = opciones.length ? elegir(opciones) : escIdx;
+  colocarPareja();
+  aviso("¡Ya eres adulto! Busca pareja en " + ESCENARIOS[escPareja].nombre);
+  sNivel();
+}
+function nuevaPareja(){
+  let p = null;
+  for (let i=0;i<60;i++){ const q = puntoLibre(70);
+    if (d2(q.x,q.y,CUEVA.x,CUEVA.y) > 620*620){ p=q; break; } }
+  if (!p) p = puntoLibre(70);
+  return { x:p.x, y:p.y, mira:1, paso:0, destino:{x:p.x,y:p.y}, esperar:entre(1,3), sigue:false };
+}
+function colocarPareja(){
+  pareja = null;
+  if (mision === "buscar" && escIdx === escPareja) pareja = nuevaPareja();
+  else if (mision === "guiar"){
+    pareja = nuevaPareja();
+    pareja.x = dino.x - 80; pareja.y = dino.y + 50; pareja.sigue = true;
+  } else if (mision === "anidar"){
+    pareja = nuevaPareja();
+    pareja.x = NIDO.x - 76; pareja.y = NIDO.y + 16;
+  }
+}
+function ponerHuevo(){
+  mision = "anidar";
+  nido = { progreso:0, integridad:100, roto:0 };
+  pareja.sigue = false;
+  pareja.x = NIDO.x - 76; pareja.y = NIDO.y + 16;
+  aviso("¡Pusiste un huevo! Defiéndelo hasta que nazca");
+  sNivel();
+}
+function nacer(){
+  mision = "fin";
+  estado = "final";
+  document.getElementById("finTexto").textContent =
+    ESPECIES[dino.id].nombre + " · " + puntos + " puntos · " +
+    ESCENARIOS[escIdx].nombre;
+  chispas(NIDO.x, NIDO.y-20, "#FFF0C6", 40, 260);
+  irA(pFinal);
+  sNivel();
+}
+function actualizarMision(dt){
+  if (mision === "ninguna" && etapa >= 3 && estado === "jugando"){ iniciarMision(); return; }
+  if (pareja){
+    const dd = Math.hypot(dino.x-pareja.x, dino.y-pareja.y);
+    let tx = null, ty = null, vel = 0;
+    if (mision === "buscar"){
+      pareja.esperar -= dt;
+      if (pareja.esperar <= 0 || Math.hypot(pareja.destino.x-pareja.x, pareja.destino.y-pareja.y) < 50){
+        pareja.destino = puntoLibre(60); pareja.esperar = entre(3,7);
+      }
+      tx = pareja.destino.x; ty = pareja.destino.y; vel = 62;
+      if (dd < 95){
+        mision = "guiar"; pareja.sigue = true;
+        aviso("¡Encontraste pareja! Llévala a la cueva");
+        chispas(pareja.x, pareja.y-70, "#FF8FB0", 22, 180); sNivel();
+      }
+    } else if (mision === "guiar"){
+      if (dd > 95){ tx = dino.x; ty = dino.y; vel = VEL_BASE*.78; }
+      if (d2(dino.x, dino.y, CUEVA.x, CUEVA.y) < (CUEVA.r+90)*(CUEVA.r+90)) ponerHuevo();
+    }
+    if (tx !== null){
+      const ax = tx-pareja.x, ay = ty-pareja.y, m = Math.hypot(ax,ay) || 1;
+      pareja.x += ax/m*vel*dt; pareja.y += ay/m*vel*dt;
+      if (Math.abs(ax) > 4) pareja.mira = ax > 0 ? 1 : -1;
+      pareja.paso += dt*(vel > 100 ? 10 : 5);
+      chocar(pareja, 26);
+    } else pareja.paso -= pareja.paso*dt*5;
+  }
+  if (mision === "anidar" && nido){
+    if (nido.roto > 0){ nido.roto -= dt; return; }
+    nido.progreso += dt/INCUBA;
+    let mordiendo = 0;
+    for (const p of depredadores){
+      if (p.aturdido > 0) continue;
+      if (p.clase === "aire" && p.altura > 70) continue;
+      if (d2(p.x, p.y, NIDO.x, NIDO.y) < 96*96) mordiendo++;
+    }
+    if (mordiendo){
+      nido.integridad -= 13*mordiendo*dt*D().gasto;
+      if (!reduce) sacudida = Math.max(sacudida, 5);
+      if (azar() < dt*3) chispas(NIDO.x, NIDO.y-16, "#E0C88A", 5, 90);
+    } else if (nido.integridad < 100) nido.integridad = Math.min(100, nido.integridad + 3.5*dt);
+    if (nido.integridad <= 0){
+      nido.integridad = 100; nido.progreso = 0; nido.roto = 4;
+      empujon(520, 3.2);                       // tu pareja los espanta
+      aviso("¡Se rompió el huevo! Tu pareja pondrá otro");
+      sMal();
+    }
+    if (nido.progreso >= 1) nacer();
+  }
+}
+function devorar(p){
+  const nombre = p.nombre.charAt(0).toUpperCase() + p.nombre.slice(1);
+  p.comido = true;
+  dino.hambre = lim(dino.hambre + 46, 0, 100);
+  sumar(70);
+  chispas(p.x, p.y-26, "#E06A5A", 26, 210);
+  sComer(); tono(190,.26,"sawtooth",.1);
+  aviso("¡Te comiste al " + nombre + "!");
+}
+
+/* =======================================================
+   Defensas
+   ======================================================= */
+function defensaDisponible(){ return etapa >= 1 && dino.defRecarga <= 0 && estado === "jugando"; }
+function empujon(radio, tiempo){
+  for (const p of depredadores){
+    const d = Math.hypot(p.x-dino.x, p.y-dino.y);
+    if (d < radio && d > 0){
+      p.x += (p.x-dino.x)/d*150; p.y += (p.y-dino.y)/d*150;
+      p.aturdido = tiempo; p.cazando = false;
+    }
+  }
+  chispas(dino.x + dino.mira*40, dino.y-30, "#FFD48A", 14, 200);
+  if (!reduce) sacudida = 12;
+}
+function usarDefensa(){
+  if (!defensaDisponible()){ if (etapa < 1) aviso("Tu defensa aparece cuando seas juvenil"); return; }
+  const id = dino.id;
+  dino.defMax = recargaMax();
+  dino.defRecarga = dino.defMax; dino.defTiempo = 2.4; sDef();
+  const aturde = (radio, tiempo, texto) => {
+    let n = 0;
+    for (const p of depredadores) if (d2(p.x,p.y,dino.x,dino.y) < radio*radio){ p.aturdido = tiempo; p.cazando = false; n++; }
+    chispas(dino.x, dino.y-30, "#FFE08A", 16, 190);
+    if (!reduce) sacudida = 10;
+    aviso(texto + (n ? " ¡" + n + " alejado" + (n>1?"s":"") + "!" : ""));
+  };
+  if (id === "triceratops"){ empujon(300, 2.2); aviso("¡Embestida!"); }
+  else if (id === "stegosaurus") aturde(230, 2.6, "¡Coletazo!");
+  else if (id === "anquilosaurio"){ dino.invul = 3.2; aviso("¡Acorazado!"); }
+  else if (id === "braquiosaurio") aturde(400, 2.4, "¡Pisotón!");
+  else if (id === "tiranosaurio"){ aturde(480, 3.0, "¡RUGIDO!"); tono(90,.5,"sawtooth",.12); }
+  else if (id === "velociraptor"){ dino.defTiempo = 3.0; aviso("¡Sprint!"); }
+  else if (id === "carnotauro"){ dino.defTiempo = 2.8; empujon(240, 2.0); aviso("¡Carrera!"); }
+  else if (id === "espinosaurio"){
+    dino.defTiempo = 3.2; dino.invul = 3.2;
+    aviso(enAgua(dino.x,dino.y) ? "¡Zambullida!" : "Mejor en el agua…");
+    chispas(dino.x, dino.y-10, "#8FE4FA", 14);
+  } else if (id === "dilofosaurio"){
+    let mejor=null, md=1e9;
+    for (const p of depredadores){ const d=d2(p.x,p.y,dino.x,dino.y); if (d<md && d<520*520){ md=d; mejor=p; } }
+    if (mejor){ mejor.ciego = 4; mejor.cazando = false;
+      chispas(mejor.x, mejor.y-40, "#B7E04A", 16, 150); aviso("¡Escupitajo certero!"); }
+    else aviso("No hay nadie cerca");
+  }
+}
+
+/* =======================================================
+   Lógica
+   ======================================================= */
+function chocar(e, radio){
+  for (const v of vegetales){
+    const d = Math.hypot(e.x-v.x, e.y-v.y), m = v.r+radio;
+    if (d<m && d>0){ e.x = v.x+(e.x-v.x)/d*m; e.y = v.y+(e.y-v.y)/d*m; }
+  }
+  for (const r of rocas){
+    const d = Math.hypot(e.x-r.x, e.y-r.y), m = r.r+radio;
+    if (d<m && d>0){ e.x = r.x+(e.x-r.x)/d*m; e.y = r.y+(e.y-r.y)/d*m; }
+  }
+  e.x = lim(e.x, 40, MUNDO.w-40); e.y = lim(e.y, 70, MUNDO.h-40);
+}
+function escondidoEnMata(){
+  for (const m of matas) if (d2(dino.x,dino.y,m.x,m.y) < m.r*m.r) return true;
+  return false;
+}
+function atrapado(dep){
+  if (dino.invul > 0 || dino.prof > .5) return;
+  puntos = Math.max(0, puntos-D().castigo);
+  dino.x = CUEVA.x+40; dino.y = CUEVA.y+100;
+  dino.prof = 0; dino.invul = 2.8; dino.susto = 1.6;
+  if (!reduce) sacudida = 15;
+  chispas(dino.x, dino.y-30, "#FFD48A", 16); sSusto();
+  aviso("¡Escapaste de milagro!");
+  for (const p of depredadores){
+    p.cazando = false; p.esperar = 2.4; p.destino = puntoLibre(50);
+    if (p.clase === "aire") p.altura = 150;
+  }
+  if (dep){ dep.x += 120; dep.y += 60; }
+}
+function comer(c){
+  const carn = cfg().dieta === "carnivoro";
+  const bien = (carn && c.esCarne) || (!carn && !c.esCarne);
+  c.viva = false; c.espera = entre(6,11);
+  if (bien){
+    dino.hambre = lim(dino.hambre + (c.tipo === "carrona" ? 26 : 34), 0, 100);
+    sumar(10); sComer();
+    chispas(c.x, c.y, c.esCarne ? "#E06A5A" : "#9BE07A", 12);
+  } else {
+    dino.enfermo = 4.5; puntos = Math.max(0, puntos-10); sMal();
+    chispas(c.x, c.y, "#B9D94A", 14);
+    aviso(carn ? "¡Puaj! Los carnívoros no comen plantas" : "¡Puaj! Los herbívoros no comen carne");
+  }
+}
+function sumar(n){
+  puntos += n;
+  const nuevo = Math.floor(puntos/PUNTOS_NIVEL) + 1;
+  if (nuevo > nivel){
+    const etAntes = etapa, abiertosAntes = desbloqueados;
+    nivel = nuevo; sNivel();
+    etapa = etapaDeNivel(nivel);
+    desbloqueados = escenariosAbiertos(nivel);
+    ajustarDepredadores();
+    if (desbloqueados > abiertosAntes){
+      generarPasadizos();
+      aviso("¡Se abrió un pasadizo hacia " + ESCENARIOS[desbloqueados-1].nombre + "!");
+      chispas(dino.x, dino.y-40, "#9BE0FF", 22, 200);
+    } else if (etapa > etAntes){
+      aviso("¡Creciste! Ahora eres " + ETAPAS[etapa].nombre.toLowerCase());
+      chispas(dino.x, dino.y-40, "#FFE08A", 22, 200);
+    } else aviso("¡Nivel " + nivel + "!");
+  }
+}
+function actualizar(dt){
+  const {dx,dy} = entrada(); const c = cfg();
+  let mult = 1;
+  if (dino.hambre <= 0 || dino.sed <= 0) mult *= .62;
+  if (dino.enfermo > 0) mult *= .6;
+  if (dino.defTiempo > 0 && (dino.id === "velociraptor" || dino.id === "carnotauro")) mult *= 1.95;
+  if (dino.defTiempo > 0 && dino.id === "anquilosaurio") mult *= .35;
+  const agua = enAgua(dino.x, dino.y);
+  if (agua) mult *= (dino.id === "espinosaurio" ? 1.05 : .78);
+  const vel = VEL_BASE * c.vel * (.72 + .28*ETAPAS[etapa].esc) * mult;
+  // inercia: la velocidad persigue al mando en vez de saltar de golpe
+  const suave = Math.min(1, dt*ACEL);
+  dino.vx += (dx*vel - dino.vx) * suave;
+  dino.vy += (dy*vel - dino.vy) * suave;
+  if (!dx && Math.abs(dino.vx) < 2) dino.vx = 0;
+  if (!dy && Math.abs(dino.vy) < 2) dino.vy = 0;
+  dino.x += dino.vx*dt; dino.y += dino.vy*dt;
+  if (dino.vx > 8) dino.mira = 1; else if (dino.vx < -8) dino.mira = -1;
+  const marcha = Math.hypot(dino.vx, dino.vy) / (vel || 1);
+  dino.paso += marcha > .06 ? dt*11*Math.min(1.3, marcha + .3) : -dino.paso*dt*6;
+  chocar(dino, 22*ETAPAS[etapa].esc + 10);
+
+  const cerca = enCueva(dino.x, dino.y);
+  dino.prof = lim(dino.prof + (cerca ? dt*2.2 : -dt*3.4), 0, 1);
+
+  if (dino.invul>0) dino.invul-=dt;
+  if (dino.susto>0) dino.susto-=dt;
+  if (dino.enfermo>0) dino.enfermo-=dt;
+  if (dino.defTiempo>0) dino.defTiempo-=dt;
+  if (dino.defRecarga>0) dino.defRecarga-=dt;
+  if (bloqueoViaje>0) bloqueoViaje-=dt;
+  if (avisoT>0) avisoT-=dt;
+  hudH += (dino.hambre-hudH)*Math.min(1,dt*7);
+  hudS += (dino.sed-hudS)*Math.min(1,dt*7);
+
+  if (enLava(dino.x,dino.y) && dino.invul <= 0){
+    puntos = Math.max(0, puntos-8); dino.invul = 1.6;
+    dino.x += (dino.x-MUNDO.w/2) > 0 ? 70 : -70; dino.y -= 60;
+    chispas(dino.x, dino.y-20, "#FF9A3C", 14, 170);
+    if (!reduce) sacudida = 12;
+    sMal(); aviso("¡Ay, la lava quema!");
+  }
+
+  dino.hambre = lim(dino.hambre - 1.15*D().gasto*dt, 0, 100);
+  if (agua){
+    if (dino.sed < 100){
+      dino.sed = lim(dino.sed + 34*dt, 0, 100);
+      bebiendo += dt;
+      if (bebiendo > .32){ bebiendo = 0; sBeber(); chispas(dino.x, dino.y-10, "#8FE4FA", 3); sumar(1); }
+    }
+  } else dino.sed = lim(dino.sed - 1.5*esc.sed*D().gasto*dt, 0, 100);
+  if (dino.hambre === 0 && azar() < dt*.3) aviso("Tienes mucha hambre");
+  if (dino.sed === 0 && azar() < dt*.3) aviso("Tienes mucha sed");
+
+  const alcance = 40 + 30*ETAPAS[etapa].esc;
+  for (const cm of comidas){
+    if (!cm.viva){
+      cm.espera -= dt;
+      if (cm.espera <= 0){ const n = nuevaComida(cm.tipo); cm.x = n.x; cm.y = n.y; cm.viva = true; }
+      continue;
+    }
+    cm.fase += dt*3;
+    if (cm.tipo === "lagarto" || cm.tipo === "mamifero"){
+      const dd = Math.hypot(cm.x-dino.x, cm.y-dino.y);
+      if (dd < 200 && dd > 0){
+        const hu = cm.tipo === "mamifero" ? 58 : 46;
+        cm.x += (cm.x-dino.x)/dd*hu*dt; cm.y += (cm.y-dino.y)/dd*hu*dt;
+        cm.x = lim(cm.x,60,MUNDO.w-60); cm.y = lim(cm.y,90,MUNDO.h-60);
+      }
+    }
+    if (d2(dino.x,dino.y,cm.x,cm.y) < alcance*alcance && dino.prof < .5) comer(cm);
+  }
+
+  // ---- fauna herbívora: pasta, huye y se puede cazar ----
+  const carnivoro = cfg().dieta === "carnivoro";
+  for (const h of herbivoros){
+    const H = HERBI[h.tipo];
+    if (!h.viva){
+      h.espera -= dt;
+      if (h.espera <= 0){ const q = puntoLibre(70); h.x=q.x; h.y=q.y; h.viva=true; }
+      continue;
+    }
+    const dd = Math.hypot(dino.x-h.x, dino.y-h.y);
+    let amenaza = null, da = 1e9;
+    for (const p of depredadores){
+      const d = Math.hypot(p.x-h.x, p.y-h.y);
+      if (d < 230 && d < da){ da = d; amenaza = p; }
+    }
+    h.huyendo = (carnivoro && dd < 260) || amenaza !== null;
+    let tx, ty;
+    if (h.huyendo){
+      const fx = amenaza ? amenaza.x : dino.x, fy = amenaza ? amenaza.y : dino.y;
+      tx = h.x + (h.x-fx); ty = h.y + (h.y-fy);
+    } else {
+      h.esperar -= dt;
+      if (h.esperar <= 0 || Math.hypot(h.destino.x-h.x, h.destino.y-h.y) < 50){
+        h.destino = puntoLibre(60); h.esperar = entre(3,8);
+      }
+      tx = h.destino.x; ty = h.destino.y;
+    }
+    const ax = tx-h.x, ay = ty-h.y, mm = Math.hypot(ax,ay) || 1;
+    const vh = H.vel * (h.huyendo ? 1 : .42);
+    h.x += ax/mm*vh*dt; h.y += ay/mm*vh*dt;
+    if (Math.abs(ax) > 4) h.mira = ax > 0 ? 1 : -1;
+    h.paso += dt*(h.huyendo ? 11 : 5);
+    chocar(h, 26);
+    if (dd < 44 + 40*H.esc && dino.prof < .5) cazar(h);
+  }
+
+  // ---- pasadizos ----
+  if (bloqueoViaje <= 0 && dino.prof < .5){
+    for (const z of pasadizos)
+      if (d2(dino.x, dino.y, z.x, z.y) < 62*62){
+        if (mision === "anidar"){ aviso("No puedes dejar el nido"); bloqueoViaje = 2.5; return; }
+        viajar(z.destino); return;
+      }
+  }
+
+  actualizarMision(dt);
+  if (repoDep > 0){ repoDep -= dt; if (repoDep <= 0) ajustarDepredadores(); }
+
+  const oculto = escondidoEnMata() || dino.prof > .5;
+  dino.oculto = oculto;
+  const factor = 1 + (nivel-1)*.03;
+  for (const p of depredadores){
+    const t = TIPO_DEP[p.nombre];
+    if (p.aturdido > 0){
+      p.aturdido -= dt; p.paso += dt*2;
+      // los grandes carnívoros se comen al depredador mientras está paralizado
+      if (DEVORADORES.indexOf(dino.id) >= 0 && !oculto && dino.prof < .5 &&
+          d2(p.x, p.y, dino.x, dino.y) < 76*76) devorar(p);
+      continue;
+    }
+    if (p.ciego > 0) p.ciego -= dt;
+    const dAgua = enAgua(dino.x, dino.y);
+    let ve = !oculto && dino.invul <= 0 && p.ciego <= 0;
+    if (t.clase === "agua") ve = ve && dAgua;
+    const dist = Math.hypot(dino.x-p.x, dino.y-p.y);
+    p.cazando = ve && dist < (t.clase === "aire" ? D().cazaDep + 80 : D().cazaDep);
+    let tx, ty;
+    if (p.cazando){ tx = dino.x; ty = dino.y; }
+    else {
+      p.esperar -= dt;
+      const llego = Math.hypot(p.destino.x-p.x, p.destino.y-p.y) < 44;
+      if (p.esperar <= 0 || llego){
+        p.destino = t.clase === "agua" ? (puntoAgua() || puntoLibre(50)) : puntoLibre(50);
+        p.esperar = entre(3,7);
+      }
+      tx = p.destino.x; ty = p.destino.y;
+      // mientras incubas, los depredadores van a por el huevo
+      if (mision === "anidar" && nido && nido.roto <= 0 && t.clase !== "agua"){
+        tx = NIDO.x; ty = NIDO.y;
+      }
+    }
+    let ax = tx-p.x, ay = ty-p.y;
+    const dc = Math.hypot(p.x-CUEVA.x, p.y-CUEVA.y);
+    if (dc < CUEVA.r+80 && mision !== "anidar"){ ax = p.x-CUEVA.x; ay = p.y-CUEVA.y; }
+    const m = Math.hypot(ax,ay) || 1;
+    const v = t.vel*VEL_DEP*D().velDep*D().compVel*factor*(p.cazando ? 1 : .5);
+    p.x += ax/m*v*dt; p.y += ay/m*v*dt;
+    if (Math.abs(ax) > 4) p.mira = ax > 0 ? 1 : -1;
+    p.paso += dt*(p.cazando ? 13 : 7);
+    if (t.clase === "tierra") chocar(p, 24);
+    else if (t.clase === "agua"){
+      if (!enAgua(p.x,p.y)){ const q = puntoAgua(); if (q){ p.x = q.x; p.y = q.y; } }
+      p.emergido = lim(p.emergido + (p.cazando ? dt*3 : -dt*2), 0, 1);
+    } else {
+      p.x = lim(p.x,40,MUNDO.w-40); p.y = lim(p.y,70,MUNDO.h-40);
+      const obj = p.cazando && dist < 220 ? 26 : 130;
+      p.altura += (obj - p.altura)*Math.min(1, dt*2.4);
+    }
+    const golpeR = t.clase === "aire" ? (p.altura < 55 ? 44 : -1) : 42;
+    if (golpeR > 0 && d2(p.x,p.y,dino.x,dino.y) < golpeR*golpeR) atrapado(p);
+  }
+  if (depredadores.some(p => p.comido)){
+    depredadores = depredadores.filter(p => !p.comido);
+    repoDep = 9;                              // tardan un rato en volver a aparecer
+  }
+
+  for (let i=particulas.length-1;i>=0;i--){
+    const q = particulas[i];
+    q.x += q.vx*dt; q.y += q.vy*dt; q.vy += 250*dt; q.vida -= dt;
+    if (q.vida <= 0) particulas.splice(i,1);
+  }
+  for (const z of ceniza){
+    z.y += z.v*dt; z.x += Math.sin(z.y*.01)*8*dt;
+    if (z.y > MUNDO.h){ z.y = -20; z.x = azar()*MUNDO.w; }
+  }
+  if (sacudida > 0) sacudida = Math.max(0, sacudida - dt*26);
+}
+
+/* =======================================================
+   Escenario: dibujo
+   ======================================================= */
+let _vin=null, _vinC="", _agu=null, _aguC="";
+function vineta(){
+  const clave = vistaW + "x" + vistaH + esc.vineta;
+  if (clave !== _vinC){
+    _vin = ctx.createRadialGradient(vistaW/2,vistaH/2,vistaH*.34,vistaW/2,vistaH/2,vistaH*.8);
+    _vin.addColorStop(0,"rgba(0,0,0,0)"); _vin.addColorStop(1, esc.vineta);
+    _vinC = clave;
+  }
+  return _vin;
+}
+function aguaGrad(){
+  const clave = vistaH + esc.agua1 + esc.agua2;
+  if (clave !== _aguC){
+    _agu = ctx.createLinearGradient(0,0,0,vistaH);
+    _agu.addColorStop(0, esc.agua1); _agu.addColorStop(1, esc.agua2);
+    _aguC = clave;
+  }
+  return _agu;
+}
+function sombraSuelo(c,x,y,rx,ry,a){
+  c.fillStyle = "rgba(16,44,30," + (a||.28) + ")";
+  c.beginPath(); c.ellipse(x,y,rx,ry,0,0,6.3); c.fill();
+}
+function fondo(cam){
+  ctx.fillStyle = esc.suelo; ctx.fillRect(0,0,vistaW,vistaH);
+  ctx.fillStyle = esc.manchas;
+  const paso = 230, x0 = Math.floor(cam.x/paso)*paso, y0 = Math.floor(cam.y/paso)*paso;
+  for (let x=x0;x<cam.x+vistaW+paso;x+=paso)
+    for (let y=y0;y<cam.y+vistaH+paso;y+=paso){
+      const s = Math.abs(Math.sin(x*.013+y*.021));
+      if (s > .5){ ctx.beginPath();
+        ctx.ellipse(x-cam.x+70, y-cam.y+70, 72+s*44, 48+s*28, s*2, 0, 6.3); ctx.fill(); }
+    }
+}
+function dibujarAgua(cam, t){
+  if (esc.rio){
+    const paso = 26, a = Math.max(0,cam.x-paso), b = Math.min(MUNDO.w, cam.x+vistaW+paso);
+    ctx.fillStyle = esc.orilla; ctx.beginPath();
+    for (let x=a;x<=b;x+=paso) ctx.lineTo(x-cam.x, rioY(x)-ANCHO_RIO-14-cam.y);
+    for (let x=b;x>=a;x-=paso) ctx.lineTo(x-cam.x, rioY(x)+ANCHO_RIO+14-cam.y);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = aguaGrad(); ctx.beginPath();
+    for (let x=a;x<=b;x+=paso) ctx.lineTo(x-cam.x, rioY(x)-ANCHO_RIO-cam.y);
+    for (let x=b;x>=a;x-=paso) ctx.lineTo(x-cam.x, rioY(x)+ANCHO_RIO-cam.y);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.4)"; ctx.lineWidth = 3; ctx.lineCap = "round";
+    for (let x=a;x<=b;x+=72){
+      const y = rioY(x) + Math.sin(x*.05+t*2)*32;
+      ctx.beginPath(); ctx.moveTo(x-cam.x-15,y-cam.y); ctx.lineTo(x-cam.x+15,y-cam.y); ctx.stroke();
+    }
+  }
+  for (const c of charcos){
+    if (c.x < cam.x-220 || c.x > cam.x+vistaW+220) continue;
+    ctx.fillStyle = esc.orilla;
+    ctx.beginPath(); ctx.ellipse(c.x-cam.x,c.y-cam.y,c.r+13,(c.r+13)*.72,0,0,6.3); ctx.fill();
+    ctx.fillStyle = esc.agua1;
+    ctx.beginPath(); ctx.ellipse(c.x-cam.x,c.y-cam.y,c.r,c.r*.72,0,0,6.3); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(c.x-cam.x-8,c.y-cam.y-6,c.r*.45,c.r*.2,.3,0,6.3); ctx.stroke();
+  }
+  for (const l of lavas){
+    if (l.x < cam.x-240 || l.x > cam.x+vistaW+240) continue;
+    const pulso = .5+.5*Math.sin(t*2+l.fase);
+    ctx.fillStyle = "#2B1610";
+    ctx.beginPath(); ctx.ellipse(l.x-cam.x,l.y-cam.y,l.r+14,(l.r+14)*.7,0,0,6.3); ctx.fill();
+    const g = ctx.createRadialGradient(l.x-cam.x,l.y-cam.y,4,l.x-cam.x,l.y-cam.y,l.r);
+    g.addColorStop(0,"#FFE27A"); g.addColorStop(.5,"#FF8A2B"); g.addColorStop(1,"#C22B10");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.ellipse(l.x-cam.x,l.y-cam.y,l.r,l.r*.7,0,0,6.3); ctx.fill();
+    ctx.fillStyle = "rgba(255,220,120," + (.25+.3*pulso) + ")";
+    ctx.beginPath(); ctx.ellipse(l.x-cam.x,l.y-cam.y,l.r*.5,l.r*.32,0,0,6.3); ctx.fill();
+  }
+}
+function dibujarHierba(cam){
+  ctx.lineWidth = 2.4; ctx.lineCap = "round";
+  const seco = esc.id === "desierto" || esc.id === "volcan";
+  const salto = DETALLE ? 1 : 2;
+  for (let ih=0; ih<hierbas.length; ih+=salto){
+    const h = hierbas[ih];
+    if (h.x<cam.x-20||h.x>cam.x+vistaW+20||h.y<cam.y-20||h.y>cam.y+vistaH+20) continue;
+    ctx.strokeStyle = seco ? (h.g>.5?"rgba(150,120,60,.5)":"rgba(190,160,100,.45)")
+                           : (h.g>.5?"rgba(40,100,60,.7)":"rgba(150,196,110,.6)");
+    ctx.beginPath(); ctx.moveTo(h.x-cam.x,h.y-cam.y);
+    ctx.lineTo(h.x-cam.x+(h.g-.5)*8, h.y-cam.y-h.l); ctx.stroke();
+  }
+}
+/* ---------- vegetación: se dibuja una vez y luego se pega ----------
+   Cada planta costaba cientos de trazos por fotograma (una cícada del desierto,
+   unos 600). Ahora se guarda en el mismo caché de sprites que los dinosaurios
+   y el balanceo se aplica al pegarla, girándola un poco desde la base. */
+const CAJA_VEG = [-100, -224, 100, 32];
+const PASO_ALTO = 30, PASO_GIRO = .22;
+// solo estas variedades usan el alto y el giro propios de cada planta;
+// las cícadas y las coníferas son todas iguales, así que gastan un único sprite
+const VEG_VARIABLE = ["palmera", "seco", "quemado"];
+function dibujarVegetal(v, cam, t){
+  const vaiven = Math.sin(t*1.3 + v.x*.01)*.09;
+  const varia = VEG_VARIABLE.indexOf(esc.vegetacion) >= 0;
+  const alto = varia ? Math.round(v.alto/PASO_ALTO)*PASO_ALTO : 130;
+  const giro = varia ? Math.round(v.giro/PASO_GIRO)*PASO_GIRO : 0;
+  const clave = "v" + esc.vegetacion + "|" + alto + "|" + giro.toFixed(2) + "|" + (DETALLE?1:0);
+  const s = sprite(clave, CAJA_VEG, 1,
+    cc => pintarVegetal(cc, { x:0, y:0, alto:alto, giro:giro }, { x:0, y:0 }, 0));
+  ctx.save();
+  ctx.translate(v.x-cam.x, v.y-cam.y);
+  if (vaiven) ctx.rotate(vaiven*.5);
+  ctx.drawImage(s.cv, -s.ox, -s.oy, s.w, s.h);
+  ctx.restore();
+}
+function pintarVegetal(c, v, cam, t){
+  const x = v.x-cam.x, y = v.y-cam.y;
+  sombraSuelo(c,x,y+6,34,12);
+  const vaiven = Math.sin(t*1.3+v.x*.01)*.09;
+  if (esc.vegetacion === "palmera" || esc.vegetacion === "seco"){
+    c.strokeStyle = esc.vegetacion === "seco" ? "#4A3B2A" : "#5E4526";
+    c.lineWidth = 18; c.lineCap = "round";
+    c.beginPath(); c.moveTo(x,y);
+    c.quadraticCurveTo(x+v.giro*46, y-v.alto*.6, x+v.giro*74, y-v.alto); c.stroke();
+    c.strokeStyle = esc.vegetacion === "seco" ? "#6B5B42" : "#8A6740";
+    c.lineWidth = 13;
+    c.beginPath(); c.moveTo(x,y);
+    c.quadraticCurveTo(x+v.giro*46, y-v.alto*.6, x+v.giro*74, y-v.alto); c.stroke();
+    const cx = x+v.giro*74, cy = y-v.alto;
+    if (esc.vegetacion === "palmera"){
+      for (let i=0;i<7;i++){
+        const a = (i/7)*Math.PI*2 + vaiven;
+        c.strokeStyle = "#204F2F"; c.lineWidth = 15;
+        c.beginPath(); c.moveTo(cx,cy);
+        c.quadraticCurveTo(cx+Math.cos(a)*40, cy+Math.sin(a)*26-16, cx+Math.cos(a)*66, cy+Math.sin(a)*44+6);
+        c.stroke();
+        c.strokeStyle = i%2 ? "#2E7A46" : "#3E9455"; c.lineWidth = 11;
+        c.beginPath(); c.moveTo(cx,cy);
+        c.quadraticCurveTo(cx+Math.cos(a)*40, cy+Math.sin(a)*26-16, cx+Math.cos(a)*66, cy+Math.sin(a)*44+6);
+        c.stroke();
+      }
+      c.fillStyle = "#C4762E"; c.strokeStyle = "#7A4517"; c.lineWidth = 2;
+      for (let i=0;i<3;i++){ c.beginPath(); c.arc(cx-9+i*9, cy+9, 6, 0, 6.3); c.fill(); c.stroke(); }
+    } else {
+      c.strokeStyle = "#4A3B2A"; c.lineWidth = 9;
+      for (let i=0;i<5;i++){
+        const a = -Math.PI/2 + (i-2)*.5 + vaiven;
+        c.beginPath(); c.moveTo(cx,cy); c.lineTo(cx+Math.cos(a)*44, cy+Math.sin(a)*34); c.stroke();
+      }
+    }
+  } else if (esc.vegetacion === "cicada"){
+    c.beginPath(); c.roundRect(x-13,y-44,26,46,9);
+    pintar(c, relleno(c,"#8A6A3C",y-48,y+4), pluma(c,"#8A6A3C"), 3);
+    for (let i=-3;i<=3;i++) fronda(c, x+i*2.4, y-44, i*.40+vaiven, 46-Math.abs(i)*5, i%2?"#5DA046":claro("#5DA046",.16), pluma(c,"#5DA046"));
+  } else if (esc.vegetacion === "conifera"){
+    c.beginPath(); c.roundRect(x-9,y-42,18,44,7);
+    pintar(c, relleno(c,"#6B4E33",y-46,y+4), "#3A2A18", 3);
+    for (let i=0;i<4;i++){
+      const w = 48-i*9, yy = y-38-i*27;
+      c.beginPath();
+      c.moveTo(x-w,yy); c.lineTo(x+Math.sin(vaiven)*8, yy-44); c.lineTo(x+w,yy); c.closePath();
+      pintar(c, relleno(c, i%2?"#2C5B3E":"#37714B", yy-44, yy), "#16331F", 3);
+    }
+  } else {
+    c.strokeStyle = "#1E1512"; c.lineWidth = 14; c.lineCap = "round";
+    c.beginPath(); c.moveTo(x,y); c.lineTo(x+v.giro*24, y-v.alto*.7); c.stroke();
+    c.strokeStyle = "#3A2A22"; c.lineWidth = 9;
+    c.beginPath(); c.moveTo(x,y); c.lineTo(x+v.giro*24, y-v.alto*.7); c.stroke();
+    c.lineWidth = 6;
+    for (let i=0;i<3;i++){
+      const a = -Math.PI/2 + (i-1)*.7;
+      c.beginPath(); c.moveTo(x+v.giro*24, y-v.alto*.7);
+      c.lineTo(x+v.giro*24+Math.cos(a)*36, y-v.alto*.7+Math.sin(a)*30); c.stroke();
+    }
+  }
+}
+function dibujarRoca(r, cam){
+  const x = r.x-cam.x, y = r.y-cam.y;
+  sombraSuelo(ctx,x,y+r.r*.5,r.r*1.05,r.r*.42);
+  const claroT = esc.id === "montana" || esc.id === "desierto";
+  const base = r.tono>.5 ? (claroT?"#A7A498":"#8A8579") : (claroT?"#BAB7AA":"#9C9689");
+  ctx.beginPath();
+  ctx.moveTo(x-r.r,y+r.r*.4); ctx.lineTo(x-r.r*.6,y-r.r*.7); ctx.lineTo(x+r.r*.2,y-r.r);
+  ctx.lineTo(x+r.r,y-r.r*.2); ctx.lineTo(x+r.r*.7,y+r.r*.45); ctx.closePath();
+  pintar(ctx, relleno(ctx, base, y-r.r, y+r.r*.5), oscuro(base,.45), 3);
+  ctx.fillStyle = "rgba(255,255,255,.2)";
+  ctx.beginPath();
+  ctx.moveTo(x-r.r*.6,y-r.r*.7); ctx.lineTo(x+r.r*.2,y-r.r); ctx.lineTo(x-r.r*.1,y-r.r*.2);
+  ctx.closePath(); ctx.fill();
+}
+function dibujarMata(m, cam, t){
+  const x = m.x-cam.x, y = m.y-cam.y;
+  const dentro = d2(dino.x,dino.y,m.x,m.y) < m.r*m.r;
+  sombraSuelo(ctx,x,y+m.r*.34,m.r*.95,m.r*.3);
+  ctx.globalAlpha = dentro ? .6 : 1;
+  const base = esc.id==="desierto" ? "#96A44E" : esc.id==="volcan" ? "#523F32" : "#317B45";
+  for (let i=0;i<6;i++){
+    const a = (i/6)*Math.PI*2;
+    ctx.beginPath();
+    ctx.ellipse(x+Math.cos(a)*m.r*.42, y+Math.sin(a)*m.r*.26, m.r*.52, m.r*.4, a*.3+Math.sin(t+i)*.03, 0, 6.3);
+    pintar(ctx, i%2?base:claro(base,.14), oscuro(base,.4), 2.4);
+  }
+  ctx.globalAlpha = 1;
+  if (dentro){
+    ctx.fillStyle = "rgba(255,243,214,.92)";
+    ctx.font = "bold 17px 'Trebuchet MS', sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("escondido", x, y-m.r*.55); ctx.textAlign = "left";
+  }
+}
+function cuevaFondo(cam){
+  const x = CUEVA.x-cam.x, y = CUEVA.y-cam.y;
+  if (x < -320 || x > vistaW+320) return;
+  ctx.fillStyle = "#181410";
+  ctx.beginPath();
+  ctx.moveTo(x-50,y+44); ctx.quadraticCurveTo(x-48,y-46,x,y-52);
+  ctx.quadraticCurveTo(x+48,y-46,x+50,y+44); ctx.closePath(); ctx.fill();
+}
+function cuevaFrente(cam){
+  const x = CUEVA.x-cam.x, y = CUEVA.y-cam.y;
+  if (x < -320 || x > vistaW+320) return;
+  ctx.beginPath();
+  ctx.moveTo(x-116,y+44); ctx.quadraticCurveTo(x-104,y-96,x,y-106);
+  ctx.quadraticCurveTo(x+104,y-96,x+116,y+44); ctx.closePath();
+  ctx.moveTo(x-50,y+44); ctx.quadraticCurveTo(x-48,y-46,x,y-52);
+  ctx.quadraticCurveTo(x+48,y-46,x+50,y+44); ctx.closePath();
+  ctx.fillStyle = relleno(ctx,"#7C6B58",y-110,y+50); ctx.fill("evenodd");
+  ctx.strokeStyle = "#3E342A"; ctx.lineWidth = 3.4; ctx.lineJoin = "round"; ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,.13)";
+  ctx.beginPath();
+  ctx.moveTo(x-116,y+44); ctx.quadraticCurveTo(x-70,y-76,x-14,y-92);
+  ctx.lineTo(x-52,y+44); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "rgba(255,243,214,.9)";
+  ctx.font = "bold 19px 'Trebuchet MS', sans-serif"; ctx.textAlign = "center";
+  ctx.fillText("REFUGIO", x, y+70); ctx.textAlign = "left";
+  if (dino.prof > .75){
+    ctx.fillStyle = "rgba(255,226,140," + (.5+.5*Math.sin(performance.now()/260)) + ")";
+    ctx.beginPath(); ctx.arc(x-9,y+6,4,0,6.3); ctx.fill();
+    ctx.beginPath(); ctx.arc(x+9,y+6,4,0,6.3); ctx.fill();
+  }
+}
+function dibujarComida(cm, cam){
+  if (!cm.viva) return;
+  const x = cm.x-cam.x, y = cm.y-cam.y;
+  if (x < -80 || x > vistaW+80 || y < -80 || y > vistaH+80) return;
+  sombraSuelo(ctx, x, y+2, 17, 6);
+  const fi = faseIndice(cm.fase, 4);
+  const sp = sprite("c"+cm.tipo+"|"+fi+"|"+(DETALLE?1:0), CAJA_COMIDA[cm.tipo], 1.1,
+    cc => COMIDA[cm.tipo](cc, fasePaso(fi,4), {}));
+  ponerSprite(ctx, sp, x, y + Math.sin(cm.fase)*1.5, 1);
+}
+
+/* =======================================================
+   Criaturas: dibujo
+   ======================================================= */
+function pintarEspecie(c, id, x, y, mira, paso, escT, opts){
+  const o = opts || {};
+  const caja = CAJA[id], ancho = (caja[2]-caja[0])*escT;
+  // crecimiento: 0 = recien salido del huevo, 1 = adulto
+  const cr = (o.crec === undefined || o.crec === null) ? 1 : Math.max(0, Math.min(1, o.crec));
+  const sx = 1.05 - .05*cr;            // los crios son mas anchos y rechonchos
+  const sy = .93 + .07*cr;             // y mas bajos: se estilizan al crecer
+  const cuerpo = (cc, fase) => {
+    fijarCrecimiento(cr);
+    cc.save(); cc.scale(sx, sy);
+    DIBUJO[id](cc, fase, o);
+    cc.restore();
+    fijarCrecimiento(1);
+  };
+  if (o.sombra !== false) sombraSuelo(c, x, y+3, ancho*.34, ancho*.11);
+  if (o.directo){                       // sin caché: escala cambiante (entrando a la cueva)
+    c.save(); c.translate(x,y); c.scale(mira*escT, escT);
+    if (o.alpha !== undefined) c.globalAlpha = o.alpha;
+    cuerpo(c, paso);
+    c.globalAlpha = 1; c.restore();
+    return;
+  }
+  const fi = faseIndice(paso, FASES);
+  const clave = "e" + id + "|" + Math.round(escT*100) + "|" + fi + "|" +
+                (o.asustado?1:0) + Math.round(cr*100) + "|" + (o.col ? o.col.base : "-") + "|" + (DETALLE?1:0);
+  const s = sprite(clave, caja, escT, cc => cuerpo(cc, fasePaso(fi,FASES)));
+  ponerSprite(c, s, x, y, mira, o.alpha);
+}
+function dibujarDepredador(p, cam){
+  const t = TIPO_DEP[p.nombre];
+  const x = p.x-cam.x, y = p.y-cam.y;
+  if (x < -260 || x > vistaW+260 || y < -300 || y > vistaH+260) return;
+  const fi = faseIndice(p.paso, FASES), fp = fasePaso(fi, FASES);
+  const dt = DETALLE ? 1 : 0;
+  if (t.clase === "aire"){
+    sombraSuelo(ctx, x, y, Math.max(6, 34-p.altura*.09), Math.max(3, 12-p.altura*.035), .22);
+    const s = sprite("a"+p.nombre+"|"+fi+"|"+dt, CAJA_ESP.pterosaurio, t.tam,
+      cc => dPterosaurio(cc, fp, t.col));
+    ponerSprite(ctx, s, x, y-p.altura, p.mira);
+  } else if (t.clase === "agua"){
+    const em = Math.round(p.emergido*3)/3;
+    ctx.save(); ctx.translate(x,y); ctx.scale(p.mira*t.tam, t.tam);
+    ctx.strokeStyle = "rgba(255,255,255,.45)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(0,4,56,16,0,0,6.3); ctx.stroke();
+    ctx.restore();
+    const esMosa = p.nombre === "mosasaurio";
+    const s = sprite("g"+p.nombre+"|"+fi+"|"+em+"|"+dt,
+      esMosa ? CAJA_ESP.mosasaurio : CAJA_ESP.cocodrilo, t.tam,
+      cc => (esMosa ? dMosasaurio : dCocodrilo)(cc, fp, em, t.col));
+    ponerSprite(ctx, s, x, y, p.mira);
+  } else {
+    const caja = CAJA[t.dib], escT = t.tam*TALLA[t.dib], ancho = (caja[2]-caja[0])*escT;
+    sombraSuelo(ctx, x, y+3, ancho*.34, ancho*.11);
+    const s = sprite("t"+p.nombre+"|"+fi+"|"+dt, caja, escT,
+      cc => DIBUJO[t.dib](cc, fp, { col:{ base:t.col.base, vientre:t.col.vientre } }));
+    ponerSprite(ctx, s, x, y, p.mira);
+  }
+  const altoTexto = t.clase === "aire" ? 92 : 108;
+  if (p.aturdido > 0 || p.ciego > 0){
+    ctx.fillStyle = "#FFE08A"; ctx.font = "bold 24px 'Trebuchet MS', sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(p.ciego > 0 ? "✖" : "★", x, y-altoTexto-p.altura); ctx.textAlign = "left";
+  } else if (p.cazando){
+    ctx.fillStyle = "#FFD24A"; ctx.font = "bold 30px 'Trebuchet MS', sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("!", x, y-altoTexto-p.altura); ctx.textAlign = "left";
+  }
+}
+/* ---- caza de herbívoros ---- */
+function cazar(h){
+  if (cfg().dieta !== "carnivoro") return;      // los herbívoros conviven entre sí
+  const H = HERBI[h.tipo];
+  if (etapa < H.etapaMin){
+    if (azar() < .015) aviso("Aún eres pequeño para cazar un " + H.nombre);
+    return;
+  }
+  h.viva = false; h.espera = entre(10,17);
+  dino.hambre = lim(dino.hambre + H.comida, 0, 100);
+  sumar(H.puntos);
+  sComer(); tono(230,.22,"sawtooth",.09);
+  chispas(h.x, h.y-30, "#E06A5A", 20, 190);
+  aviso("¡Cazaste un " + H.nombre + "!");
+}
+
+/* ---- pasadizo hacia otro territorio ---- */
+function dibujarPasadizo(z, cam){
+  const x = z.x-cam.x, y = z.y-cam.y;
+  const dest = ESCENARIOS[z.destino];
+  sombraSuelo(ctx, x, y+10, 78, 24);
+  // el hueco deja ver el color del territorio de destino
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x-36,y+20); ctx.quadraticCurveTo(x-34,y-48,x,y-54);
+  ctx.quadraticCurveTo(x+34,y-48,x+36,y+20); ctx.closePath();
+  ctx.fillStyle = "#141009"; ctx.fill(); ctx.clip();
+  const g = ctx.createRadialGradient(x, y-14, 3, x, y-14, 48);
+  g.addColorStop(0, dest.suelo); g.addColorStop(1, "rgba(10,8,6,0)");
+  ctx.fillStyle = g;
+  ctx.globalAlpha = .5 + .22*Math.sin(reloj*1.7 + z.x*.01);
+  ctx.fillRect(x-40, y-60, 80, 84);
+  ctx.restore();
+  // arco de piedra
+  ctx.beginPath();
+  ctx.moveTo(x-78,y+22); ctx.quadraticCurveTo(x-70,y-94,x,y-102);
+  ctx.quadraticCurveTo(x+70,y-94,x+78,y+22); ctx.closePath();
+  ctx.moveTo(x-36,y+20); ctx.quadraticCurveTo(x-34,y-48,x,y-54);
+  ctx.quadraticCurveTo(x+34,y-48,x+36,y+20); ctx.closePath();
+  ctx.fillStyle = relleno(ctx, "#8C7C66", y-106, y+26);
+  ctx.fill("evenodd");
+  ctx.strokeStyle = "#3E3428"; ctx.lineWidth = 3.6; ctx.lineJoin = "round"; ctx.stroke();
+  // dovelas
+  ctx.strokeStyle = "rgba(62,52,40,.5)"; ctx.lineWidth = 2.2;
+  for (let i=0;i<7;i++){
+    const a = Math.PI + (i+.5)/7*Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(x+Math.cos(a)*38, y-28+Math.sin(a)*30);
+    ctx.lineTo(x+Math.cos(a)*76, y-28+Math.sin(a)*62);
+    ctx.stroke();
+  }
+  // cartel con el destino
+  const txt = dest.nombre.split(" ")[0].toUpperCase();
+  ctx.font = "bold 19px 'Trebuchet MS', sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  const w = ctx.measureText(txt).width + 30;
+  ctx.strokeStyle = "#6B5636"; ctx.lineWidth = 6; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(x, y-100); ctx.lineTo(x, y-124); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(x-w/2, y-152, w, 32, 9);
+  ctx.fillStyle = "#EBDAAC"; ctx.fill();
+  ctx.strokeStyle = "#7A6240"; ctx.lineWidth = 3; ctx.stroke();
+  ctx.fillStyle = dest.suelo;
+  ctx.beginPath(); ctx.arc(x-w/2+13, y-136, 6, 0, 6.3); ctx.fill();
+  ctx.strokeStyle = "#7A6240"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = "#3B2E18"; ctx.fillText(txt, x+7, y-129);
+  ctx.textAlign = "left";
+}
+
+/* ---- herbívoro del ambiente ---- */
+function dibujarHerbivoro(h, cam){
+  const H = HERBI[h.tipo];
+  const x = h.x-cam.x, y = h.y-cam.y;
+  if (x < -240 || x > vistaW+240 || y < -300 || y > vistaH+240) return;
+  pintarEspecie(ctx, H.dib, x, y, h.mira, h.paso, H.esc*TALLA[H.dib],
+    { col:H.col, asustado:h.huyendo });
+}
+
+/* ---- marcador dibujado sobre el lienzo ----
+   Se dibuja aquí y no con HTML porque el navegador de algunos
+   televisores no anima el ancho de las barras. */
+function barraHUD(x, y, w, h, valor, c1, c2, texto, bajo){
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, h/2);
+  ctx.fillStyle = "rgba(6,30,20,.62)"; ctx.fill();
+  const p = Math.max(0, Math.min(1, valor/100));
+  if (p > .012){
+    ctx.save();
+    ctx.beginPath(); ctx.roundRect(x, y, w, h, h/2); ctx.clip();
+    const g = ctx.createLinearGradient(0, y, 0, y+h);
+    g.addColorStop(0, bajo ? "#F0A46A" : c1);
+    g.addColorStop(1, bajo ? "#C2482A" : c2);
+    ctx.fillStyle = g;
+    ctx.fillRect(x, y, w*p, h);
+    ctx.restore();
+  }
+  ctx.strokeStyle = "rgba(6,30,20,.3)"; ctx.lineWidth = 2;
+  for (let i=1;i<4;i++){
+    const xx = x + w*i/4;
+    ctx.beginPath(); ctx.moveTo(xx, y+4); ctx.lineTo(xx, y+h-4); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, h/2);
+  ctx.lineWidth = 3.5;
+  ctx.strokeStyle = bajo ? "#E0663A" : "rgba(255,243,214,.9)";
+  ctx.stroke();
+  ctx.fillStyle = "#FFF3D6";
+  ctx.font = "bold " + Math.round(h*.56) + "px 'Trebuchet MS', sans-serif";
+  ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  ctx.fillText(texto, x + h*.5, y + h/2 + 1);
+  ctx.textBaseline = "alphabetic";
+}
+/* ---------- minimapa: dónde están los pasadizos ---------- */
+function dibujarMinimapa(M){
+  if (estado !== "jugando" && estado !== "pausa") return;
+  const w = MODO_TV ? 176 : 116, h = Math.round(w * MUNDO.h/MUNDO.w);
+  const x0 = M, y0 = vistaH - M - h - (MODO_TV ? 30 : 78);
+  const px = x => x0 + x/MUNDO.w*w, py = y => y0 + y/MUNDO.h*h;
+  ctx.save();
+  ctx.beginPath(); ctx.roundRect(x0-6, y0-6, w+12, h+12, 10);
+  ctx.fillStyle = "rgba(6,30,20,.55)"; ctx.fill();
+  ctx.strokeStyle = "rgba(255,243,214,.5)"; ctx.lineWidth = 2.5; ctx.stroke();
+  const punto = (x, y, r, col, borde) => {
+    ctx.beginPath(); ctx.arc(px(x), py(y), r, 0, TAU);
+    ctx.fillStyle = col; ctx.fill();
+    if (borde){ ctx.strokeStyle = borde; ctx.lineWidth = 1.8; ctx.stroke(); }
+  };
+  punto(CUEVA.x, CUEVA.y, 5, "#C9A85E", "rgba(255,243,214,.9)");
+  for (const z of pasadizos){
+    const hacia = ESCENARIOS[z.destino];
+    const guia = (mision === "buscar" && z.destino === escPareja);
+    const late = guia ? 1 + Math.abs(Math.sin(reloj*3))*.5 : 1;
+    punto(z.x, z.y, 4.6*late, guia ? "#FF6E93" : hacia.agua1, "rgba(255,243,214,.9)");
+  }
+  if (nido && mision === "anidar") punto(NIDO.x, NIDO.y, 4.6, "#FFF0C6", "#8E6A20");
+  if (pareja) punto(pareja.x, pareja.y, 4.6, "#FF6E93", "rgba(255,243,214,.9)");
+  punto(dino.x, dino.y, 4.4, "#FFF3D6", "#2E9640");
+  ctx.restore();
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+}
+
+function posicionarZonas(){
+  if (MODO_TV) return;
+  const zD = document.getElementById("zonaDefensa"), zP = document.getElementById("zonaPausa");
+  if (!zD || !zP) return;
+  const px = v => (v / k) + "px";          // de unidades del juego a píxeles de pantalla
+  zD.style.left = px(defX-defR); zD.style.top = px(defY-defR);
+  zD.style.width = px(defR*2);  zD.style.height = px(defR*2);
+  zP.style.left = px(pauX-pauR); zP.style.top = px(pauY-pauR);
+  zP.style.width = px(pauR*2);  zP.style.height = px(pauR*2);
+}
+function dibujarHUD(){
+  const M = Math.min(vistaW, vistaH) * (MODO_TV ? .048 : .026);
+  const bw = MODO_TV ? 320 : 240, bh = MODO_TV ? 30 : 25;
+  barraHUD(M, M, bw, bh, hudH, "#8FE07A", "#4FA33F", "HAMBRE", dino.hambre < 25);
+  barraHUD(M, M+bh+9, bw, bh, hudS, "#7FE0F5", "#2C86A8", "SED", dino.sed < 25);
+
+  const t1 = MODO_TV ? 46 : 34, t2 = MODO_TV ? 19 : 15;
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#F2A93B";
+  ctx.font = "bold " + t1 + "px 'Trebuchet MS', sans-serif";
+  ctx.fillText(String(puntos), vistaW-M, M+t1*.86);
+  ctx.fillStyle = "#FFF3D6";
+  ctx.font = "bold " + t2 + "px 'Trebuchet MS', sans-serif";
+  ctx.fillText("Nivel " + nivel + " · " + esc.nombre.split(" ")[0], vistaW-M, M+t1*.86+t2*1.5);
+  ctx.fillStyle = "#BFE9A6";
+  ctx.fillText(ETAPAS[etapa].nombre + " · " + D().nombre, vistaW-M, M+t1*.86+t2*2.9);
+  ctx.textAlign = "left";
+
+  // botón/indicador de defensa
+  const R = MODO_TV ? 62 : 48;
+  defX = vistaW-M-R; defY = vistaH-M-R; defR = R;
+  const cargando = etapa >= 1 && dino.defRecarga > 0;
+  const listo = etapa >= 1 && dino.defRecarga <= 0;
+  // gris mientras es cria, rojo mientras se recarga, verde brillante cuando esta lista
+  ctx.beginPath(); ctx.arc(defX, defY, R, 0, TAU);
+  ctx.fillStyle = listo ? "rgba(46,150,62,.88)"
+                : cargando ? "rgba(150,38,28,.85)"
+                : "rgba(70,74,66,.75)";
+  ctx.fill();
+  if (cargando){
+    const p = 1 - dino.defRecarga/(dino.defMax || recargaMax());
+    ctx.beginPath(); ctx.moveTo(defX, defY);
+    ctx.arc(defX, defY, R, -Math.PI/2, -Math.PI/2 + Math.max(0, Math.min(1, p))*TAU); ctx.closePath();
+    ctx.fillStyle = "rgba(236,110,72,.75)"; ctx.fill();
+  }
+  if (listo){                                   // halo suave que respira
+    const brillo = .45 + .35*Math.abs(Math.sin(reloj*2.4));
+    ctx.lineWidth = 9; ctx.strokeStyle = "rgba(143,224,122," + brillo.toFixed(2) + ")";
+    ctx.beginPath(); ctx.arc(defX, defY, R+5, 0, TAU); ctx.stroke();
+  }
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = listo ? "#B6F09A" : cargando ? "#F2846A" : "rgba(255,243,214,.7)";
+  ctx.beginPath(); ctx.arc(defX, defY, R, 0, TAU); ctx.stroke();
+  ctx.fillStyle = "#FFF8E8"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = "bold " + Math.round(R*.27) + "px 'Trebuchet MS', sans-serif";
+  ctx.fillText(etapa < 1 ? "CRECE" : cfg().defensa.toUpperCase(), defX, defY);
+  if (cargando){                                // segundos que faltan
+    ctx.font = "bold " + Math.round(R*.34) + "px 'Trebuchet MS', sans-serif";
+    ctx.fillStyle = "rgba(255,235,214,.95)";
+    ctx.fillText(Math.ceil(dino.defRecarga) + "s", defX, defY + R*.42);
+  }
+  ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+
+  // aro que se llena mientras mantienes OK para pausar
+  if (okMant.activo && !okMant.usado && estado === "jugando"){
+    const p = Math.min(1, (reloj - okMant.desde)/MANTENER_PAUSA);
+    if (p > .12){
+      ctx.lineWidth = 7; ctx.strokeStyle = "rgba(10,26,18,.55)";
+      ctx.beginPath(); ctx.arc(defX, defY, R+16, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = "#FFF3D6"; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.arc(defX, defY, R+16, -Math.PI/2, -Math.PI/2 + p*TAU); ctx.stroke();
+      ctx.lineCap = "butt";
+      ctx.fillStyle = "#FFF3D6"; ctx.textAlign = "center";
+      ctx.font = "bold " + Math.round(R*.26) + "px 'Trebuchet MS', sans-serif";
+      ctx.fillText("PAUSA", defX, defY - R - 30);
+      ctx.textAlign = "left";
+    }
+  }
+
+  dibujarMinimapa(M);
+
+  // recordatorio de la misión y estado del nido
+  if (mision === "buscar" || mision === "guiar"){
+    ctx.fillStyle = "#FFD9E4"; ctx.textAlign = "left";
+    ctx.font = "bold " + (MODO_TV ? 21 : 16) + "px 'Trebuchet MS', sans-serif";
+    ctx.fillText(mision === "buscar"
+      ? "Busca pareja en " + ESCENARIOS[escPareja].nombre
+      : "Lleva a tu pareja a la cueva", M, M + (MODO_TV ? 108 : 86));
+  } else if (mision === "anidar" && nido){
+    const bw2 = MODO_TV ? 320 : 240, bh2 = MODO_TV ? 30 : 25, M2 = M + 2*(bh2+9);
+    barraHUD(M, M2, bw2, bh2, nido.progreso*100, "#FFE08A", "#D9A63C", "NACE", false);
+    barraHUD(M, M2+bh2+9, bw2, bh2, nido.integridad, "#F2A0A0", "#B3392E", "HUEVO", nido.integridad < 35);
+  }
+
+  if (MODO_TV){
+    ctx.fillStyle = "rgba(255,243,214,.85)";
+    ctx.font = "bold " + 19 + "px 'Trebuchet MS', sans-serif";
+    ctx.fillText("✛ Mover     OK Defensa     MANTÉN OK 2s Pausa", M, vistaH-M-6);
+  } else {
+    pauX = M+34; pauY = vistaH-M-34; pauR = 34;
+    ctx.beginPath(); ctx.arc(pauX, pauY, pauR, 0, TAU);
+    ctx.fillStyle = "rgba(6,30,20,.55)"; ctx.fill();
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(255,243,214,.85)"; ctx.stroke();
+    ctx.fillStyle = "#FFF3D6";
+    ctx.fillRect(pauX-9, pauY-12, 6, 24);
+    ctx.fillRect(pauX+3, pauY-12, 6, 24);
+  }
+
+  if (!MODO_TV){
+    const cl = Math.round(defX)+"|"+Math.round(defY)+"|"+Math.round(pauY);
+    if (cl !== zonasClave){ zonasClave = cl; posicionarZonas(); }
+  }
+
+  if (avisoT > 0 && avisoTxt){
+    const ta = MODO_TV ? 28 : 21;
+    ctx.font = "bold " + ta + "px 'Trebuchet MS', sans-serif";
+    ctx.textAlign = "center";
+    const w = ctx.measureText(avisoTxt).width + 44, hh = ta*1.9;
+    const ax = vistaW/2 - w/2, ay = vistaH*.13;
+    ctx.globalAlpha = Math.min(1, avisoT*2.2);
+    ctx.beginPath(); ctx.roundRect(ax, ay, w, hh, hh/2);
+    ctx.fillStyle = "rgba(6,30,20,.85)"; ctx.fill();
+    ctx.lineWidth = 3.5; ctx.strokeStyle = "#F2A93B"; ctx.stroke();
+    ctx.fillStyle = "#FFF3D6"; ctx.textBaseline = "middle";
+    ctx.fillText(avisoTxt, vistaW/2, ay + hh/2 + 1);
+    ctx.textBaseline = "alphabetic"; ctx.globalAlpha = 1; ctx.textAlign = "left";
+  }
+}
+
+function flechaRefugio(cam){
+  if (!depredadores.some(p => p.cazando) || dino.prof > .3) return;
+  const a = Math.atan2(CUEVA.y-dino.y, CUEVA.x-dino.x);
+  ctx.save();
+  ctx.translate(dino.x-cam.x+Math.cos(a)*80, dino.y-cam.y-46+Math.sin(a)*80);
+  ctx.rotate(a);
+  ctx.fillStyle = "rgba(255,210,74,.9)";
+  ctx.beginPath(); ctx.moveTo(16,0); ctx.lineTo(-8,-11); ctx.lineTo(-3,0); ctx.lineTo(-8,11);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function corazon(x, y, r, alpha){
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x,y); ctx.scale(r/10, r/10);
+  ctx.beginPath();
+  ctx.moveTo(0, 8);
+  ctx.bezierCurveTo(-12, -2, -8, -12, 0, -6);
+  ctx.bezierCurveTo(8, -12, 12, -2, 0, 8);
+  ctx.closePath();
+  ctx.fillStyle = "#FF6E93"; ctx.fill();
+  ctx.strokeStyle = "#8E2340"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.restore();
+}
+function dibujarPareja(cam, t){
+  if (!pareja) return;
+  const x = pareja.x-cam.x, y = pareja.y-cam.y;
+  pintarEspecie(ctx, dino.id, x, y, pareja.mira, pareja.paso, escalaDino(),
+    { crec:1, col:{ base: claro(ESPECIES[dino.id].color, .24) } });
+  if (mision !== "anidar"){
+    const flota = Math.sin(t*2.2)*5;
+    corazon(x, y - 150*escalaDino() + flota, 15, .9);
+  }
+}
+function dibujarHuevo(cam, prog){
+  const x = CUEVA.x+150-cam.x, y = CUEVA.y+130-cam.y;
+  const meneo = prog < .8 ? Math.sin(prog*40)*(.06+prog*.12) : 0;
+  ctx.save(); ctx.translate(x,y);
+  sombraSuelo(ctx,0,4,32,11);
+  ctx.rotate(meneo);
+  c_huevo(ctx, prog);
+  ctx.restore();
+}
+function c_huevo(c, prog){
+  c.beginPath(); c.ellipse(0,-42,31,44,0,0,6.3);
+  pintar(c, relleno(c,"#F3E4C4",-88,2), "#9C8156", 3.2);
+  c.fillStyle = "rgba(150,120,80,.3)";
+  c.beginPath(); c.arc(-11,-55,7,0,6.3); c.fill();
+  c.beginPath(); c.arc(10,-33,5,0,6.3); c.fill();
+  c.beginPath(); c.arc(4,-64,4,0,6.3); c.fill();
+  if (prog > .35){
+    c.strokeStyle = "#7A6748"; c.lineWidth = 3.4; c.lineCap = "round";
+    const n = Math.floor((prog-.35)*14);
+    for (let i=0;i<n;i++){
+      const yy = -70+i*9;
+      c.beginPath(); c.moveTo(-17+(i%2)*10, yy); c.lineTo(-4+(i%2)*12, yy+7); c.stroke();
+    }
+  }
+}
+function dibujar(t){
+  const sac = sacudida>0 ? (azar()-.5)*sacudida : 0;
+  const cam = {
+    x: lim(dino.x-vistaW/2, 0, Math.max(0,MUNDO.w-vistaW)) + sac,
+    y: lim(dino.y-vistaH/2, 0, Math.max(0,MUNDO.h-vistaH)) + sac
+  };
+  ctx.setTransform(escala,0,0,escala,0,0);
+  fondo(cam); dibujarAgua(cam,t); dibujarHierba(cam); cuevaFondo(cam);
+  for (const cm of comidas) dibujarComida(cm, cam);
+
+  const capa = [];
+  const vx0 = cam.x-160, vx1 = cam.x+vistaW+160, vy0 = cam.y-280, vy1 = cam.y+vistaH+180;
+  const seVe = (x,y) => x > vx0 && x < vx1 && y > vy0 && y < vy1;
+  for (const v of vegetales) if (seVe(v.x,v.y)) capa.push({y:v.y, f:()=>dibujarVegetal(v,cam,t)});
+  for (const r of rocas)     if (seVe(r.x,r.y)) capa.push({y:r.y, f:()=>dibujarRoca(r,cam)});
+  for (const m of matas)     if (seVe(m.x,m.y)) capa.push({y:m.y, f:()=>dibujarMata(m,cam,t)});
+  for (const p of depredadores) capa.push({y:p.y, f:()=>dibujarDepredador(p,cam)});
+  for (const z of pasadizos)  if (seVe(z.x,z.y)) capa.push({y:z.y+18, f:()=>dibujarPasadizo(z,cam)});
+  for (const h of herbivoros) if (h.viva && seVe(h.x,h.y)) capa.push({y:h.y, f:()=>dibujarHerbivoro(h,cam)});
+  if (pareja && seVe(pareja.x,pareja.y)) capa.push({y:pareja.y, f:()=>dibujarPareja(cam,t)});
+  if (nido && mision === "anidar") capa.push({y:NIDO.y+6, f:()=>dibujarHuevo(cam, nido.progreso)});
+
+  if (estado === "eclosion"){
+    capa.push({y:CUEVA.y+130, f:()=>dibujarHuevo(cam, tiempoEclosion/3)});
+  } else {
+    const dentro = dino.prof;
+    const dx = dino.x + (CUEVA.x-dino.x)*dentro;
+    const dy = dino.y + (CUEVA.y+20-dino.y)*dentro;
+    const sortY = dentro > .45 ? CUEVA.y-20 : dino.y;
+    capa.push({y:sortY, f:()=>{
+      const parp = dino.invul > 0 && Math.floor(dino.invul*10)%2 === 0;
+      let alpha = parp ? .5 : 1;
+      if (dentro > .1) alpha *= (1-dentro*.55);
+      if (dino.defTiempo > 0 && dino.id === "espinosaurio" && enAgua(dino.x,dino.y)) alpha *= .35;
+      pintarEspecie(ctx, dino.id, dx-cam.x, dy-cam.y, dino.mira, dino.paso,
+        escalaDino()*(1-dentro*.4), {
+          alpha, bebe: etapa === 0, crec: etapa/3, directo: dentro > .02,
+          asustado: dino.susto > 0 || depredadores.some(p=>p.cazando),
+          sombra: dentro < .3
+        });
+      if (dino.enfermo > 0){
+        ctx.fillStyle = "rgba(150,210,60,.55)";
+        for (let i=0;i<3;i++){
+          const a = t*3+i*2.1;
+          ctx.beginPath();
+          ctx.arc(dx-cam.x+Math.cos(a)*26, dy-cam.y-100+Math.sin(a)*10, 5, 0, 6.3); ctx.fill();
+        }
+      }
+    }});
+  }
+  capa.push({y:CUEVA.y+48, f:()=>cuevaFrente(cam)});
+  capa.sort((a,b)=>a.y-b.y);
+  for (const c of capa) c.f();
+
+  flechaRefugio(cam);
+  for (const q of particulas){
+    ctx.globalAlpha = Math.max(0, q.vida/q.max);
+    ctx.fillStyle = q.color;
+    ctx.beginPath(); ctx.arc(q.x-cam.x, q.y-cam.y, q.r, 0, 6.3); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  if (esc.id === "volcan" && DETALLE){
+    ctx.fillStyle = "rgba(230,200,180,.5)";
+    for (const z of ceniza){
+      const zx = z.x-cam.x, zy = z.y-cam.y;
+      if (zx<0||zx>vistaW||zy<0||zy>vistaH) continue;
+      ctx.beginPath(); ctx.arc(zx,zy,z.r,0,6.3); ctx.fill();
+    }
+  }
+  ctx.fillStyle = vineta(); ctx.fillRect(0,0,vistaW,vistaH);
+  if (estado === "jugando" || estado === "eclosion") dibujarHUD();
+  dibujarPalanca();
+}
+
+/* =======================================================
+   Claves de partida
+   ======================================================= */
+const ESPECIE_LISTA = ORDEN_HERB.concat(ORDEN_CARN);
+const ALFA_CLAVE = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const TOPE_CLAVE = { ranura:3, especie:16, dif:4, etapa:4, escIdx:8, desbloq:8, nivel:128, puntos:32768 };
+
+function normalizarClave(txt){
+  const s = String(txt || "").toUpperCase();
+  let r = "";
+  for (let i=0;i<s.length;i++){
+    let c = s.charAt(i);
+    if (c === "I" || c === "L") c = "1";
+    else if (c === "O") c = "0";
+    else if (c === "U") c = "V";
+    if (ALFA_CLAVE.indexOf(c) >= 0) r += c;
+  }
+  return r;
+}
+function _controlClave(n){
+  let s = 0, v = n;
+  for (let i=0;i<8;i++){ s = (s + (v % 32) * (i*7 + 3)) % 127; v = Math.floor(v/32); }
+  return s;
+}
+function crearClave(d){
+  const g = k => {
+    let v = Math.floor(Number(d[k]) || 0);
+    if (v < 0) v = 0;
+    if (v > TOPE_CLAVE[k]-1) v = TOPE_CLAVE[k]-1;
+    return v;
+  };
+  let n = g("ranura") + g("especie")*4 + g("dif")*64 + g("etapa")*256 +
+          g("escIdx")*1024 + g("desbloq")*8192 + g("nivel")*65536 + g("puntos")*8388608;
+  let total = n*128 + _controlClave(n);
+  let s = "";
+  for (let i=0;i<9;i++){ s = ALFA_CLAVE.charAt(total % 32) + s; total = Math.floor(total/32); }
+  return s.substring(0,3) + "-" + s.substring(3,6) + "-" + s.substring(6,9);
+}
+function leerClave(txt){
+  const s = normalizarClave(txt);
+  if (s.length !== 9) return null;
+  let total = 0;
+  for (let i=0;i<9;i++){
+    const v = ALFA_CLAVE.indexOf(s.charAt(i));
+    if (v < 0) return null;
+    total = total*32 + v;
+  }
+  const chk = total % 128, n = Math.floor(total/128);
+  if (_controlClave(n) !== chk) return null;
+  const sacar = (div, mod) => Math.floor(n/div) % mod;
+  const d = { ranura:sacar(1,4), especie:sacar(4,16), dif:sacar(64,4), etapa:sacar(256,4),
+              escIdx:sacar(1024,8), desbloq:sacar(8192,8), nivel:sacar(65536,128), puntos:sacar(8388608,32768) };
+  if (d.ranura > 2 || d.especie > 8 || d.dif > 2 || d.etapa > 3) return null;
+  if (d.escIdx > 4 || d.desbloq < 1 || d.desbloq > 5) return null;
+  if (d.nivel < 1 || d.escIdx >= d.desbloq) return null;
+  return d;
+}
+function claveDeAhora(ranura){
+  return crearClave({ ranura:ranura, especie:Math.max(0, ESPECIE_LISTA.indexOf(dino.id)),
+    dif:dif, etapa:etapa, escIdx:escIdx, desbloq:desbloqueados, nivel:nivel,
+    puntos:Math.min(32767, puntos) });
+}
+function cargarPartida(d){
+  dino.id = ESPECIE_LISTA[d.especie] || ESPECIE_LISTA[0];
+  dif = d.dif; nivel = d.nivel; puntos = d.puntos;
+  desbloqueados = Math.max(1, Math.min(ESCENARIOS.length, d.desbloq));
+  dino.hambre = 100; dino.sed = 100; dino.enfermo = 0; dino.susto = 0;
+  dino.defTiempo = 0; dino.defRecarga = 0; dino.mira = 1; dino.paso = 0; dino.vx = 0; dino.vy = 0;
+  mision = "ninguna"; escPareja = -1; pareja = null; nido = null; repoDep = 0;
+  hudH = 100; hudS = 100; particulas = []; sacudida = 0;
+  prepararEscenario(Math.min(d.escIdx, desbloqueados-1));
+  etiquetasAjustes();
+  irA(null);
+  estado = "jugando"; anterior = performance.now();
+  iniciarMusica();
+  aviso("Partida " + (d.ranura+1) + " · " + ESPECIES[dino.id].nombre + " nivel " + nivel);
+}
+
+/* ---- pantalla de guardar ---- */
+function abrirGuardar(){
+  estado = "guardar";
+  document.getElementById("claveCaja").classList.add("oculta");
+  irA(pGuardar);
+}
+function mostrarClave(ranura){
+  const c = claveDeAhora(ranura);
+  document.getElementById("claveTitulo").textContent =
+    "Partida " + (ranura+1) + " · " + ESPECIES[dino.id].nombre + " · nivel " + nivel;
+  document.getElementById("claveTexto").textContent = c;
+  document.getElementById("claveNota").textContent = "Anótala en un papel";
+  document.getElementById("claveCaja").classList.remove("oculta");
+  sNivel();
+}
+
+/* ---- pantalla de continuar con clave ---- */
+let tecleado = "";
+function pintarTecleado(){
+  const s = (tecleado + "_________").substring(0,9);
+  document.getElementById("claveEntrada").textContent =
+    s.substring(0,3) + "-" + s.substring(3,6) + "-" + s.substring(6,9);
+}
+function abrirClave(){
+  estado = "clave"; tecleado = "";
+  pintarTecleado();
+  document.getElementById("claveError").innerHTML = "&nbsp;";
+  irA(pClave);
+}
+function pulsarTecla(ch){
+  if (ch === "<"){ tecleado = tecleado.substring(0, tecleado.length-1); }
+  else if (ch === "OK"){
+    const d = leerClave(tecleado);
+    if (d) { cargarPartida(d); return; }
+    document.getElementById("claveError").textContent =
+      tecleado.length < 9 ? "Faltan caracteres" : "Esa clave no es válida";
+    tono(160,.25,"sawtooth",.09);
+    return;
+  }
+  else if (tecleado.length < 9) tecleado += ch;
+  document.getElementById("claveError").innerHTML = "&nbsp;";
+  pintarTecleado();
+  tono(620,.05,"triangle",.05);
+  if (tecleado.length === 9){
+    const d = leerClave(tecleado);
+    if (d) cargarPartida(d);
+    else document.getElementById("claveError").textContent = "Esa clave no es válida";
+  }
+}
+function construirTeclado(){
+  const cont = document.getElementById("teclado");
+  if (cont.children.length) return;
+  const teclas2 = ALFA_CLAVE.split("").concat(["<","OK"]);
+  for (const ch of teclas2){
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "tec enfocable" + (ch.length > 1 || ch === "<" ? " ancha" : "");
+    b.textContent = ch === "<" ? "BORRAR" : ch;
+    b.addEventListener("click", () => pulsarTecla(ch));
+    cont.appendChild(b);
+  }
+}
+
+/* =======================================================
+   Pantallas y navegación con el mando
+   ======================================================= */
+const pInicio = document.getElementById("inicio");
+const pEleccion = document.getElementById("eleccion");
+const pPausa = document.getElementById("pausa");
+const pTerr = document.getElementById("territorio");
+const pFinal = document.getElementById("final");
+const pGuardar = document.getElementById("guardar");
+const pClave = document.getElementById("clave");
+let seleccion = "triceratops";
+const foco = { lista: [], i: 0 };
+
+function pintarFoco(){
+  for (let i=0;i<foco.lista.length;i++)
+    foco.lista[i].classList.toggle("enfocado", i === foco.i);
+  const el = foco.lista[foco.i];
+  if (!el) return;
+  try { el.scrollIntoView({block:"nearest", inline:"nearest"}); } catch(e){}
+  const id = el.getAttribute("data-especie");
+  if (id){
+    seleccion = id;
+    for (let i=0;i<foco.lista.length;i++)
+      foco.lista[i].classList.toggle("sel", foco.lista[i] === el);
+  }
+}
+function enfocarPantalla(p, idx){
+  foco.lista = Array.prototype.slice.call(p.querySelectorAll(".enfocable"));
+  foco.i = Math.max(0, Math.min(idx || 0, foco.lista.length - 1));
+  pintarFoco();
+}
+function moverFoco(dir){
+  if (foco.lista.length < 2) return;
+  const r0 = foco.lista[foco.i].getBoundingClientRect();
+  const cx = r0.left + r0.width/2, cy = r0.top + r0.height/2;
+  let mejor = -1, mejorP = 1e9;
+  for (let i=0;i<foco.lista.length;i++){
+    if (i === foco.i) continue;
+    const r = foco.lista[i].getBoundingClientRect();
+    const dx = (r.left + r.width/2) - cx, dy = (r.top + r.height/2) - cy;
+    let ok, pr, lat;
+    if (dir === "izq"){ ok = dx < -6; pr = -dx; lat = Math.abs(dy); }
+    else if (dir === "der"){ ok = dx > 6; pr = dx; lat = Math.abs(dy); }
+    else if (dir === "arriba"){ ok = dy < -6; pr = -dy; lat = Math.abs(dx); }
+    else { ok = dy > 6; pr = dy; lat = Math.abs(dx); }
+    if (!ok) continue;
+    const p = pr + lat*2.4;
+    if (p < mejorP){ mejorP = p; mejor = i; }
+  }
+  if (mejor >= 0){ foco.i = mejor; pintarFoco(); tono(560,.045,"triangle",.05); }
+}
+function activarFoco(){
+  const el = foco.lista[foco.i];
+  if (el) el.click();
+}
+function atras(){
+  if (estado === "jugando") pausar(true);
+  else if (estado === "pausa") pausar(false);
+  else if (estado === "eleccion"){ estado = "inicio"; irA(pInicio); }
+  else if (estado === "guardar"){ estado = "pausa"; irA(pPausa); }
+  else if (estado === "clave"){ estado = "inicio"; irA(pInicio); }
+}
+
+function retrato(id, cv){
+  const dpr = Math.min(window.devicePixelRatio||1, 1.5);
+  const W = cv.clientWidth || 230, H = cv.clientHeight || 172;
+  cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+  const c = cv.getContext("2d");
+  c.setTransform(dpr,0,0,dpr,0,0);
+  c.clearRect(0,0,W,H);
+  const caja = CAJA[id], x0 = caja[0], y0 = caja[1], x1 = caja[2], y1 = caja[3];
+  const pad = 14;
+  const s = Math.min((W-pad*2)/(x1-x0), (H-pad*2)/(y1-y0));
+  c.save();
+  c.translate(W/2 - ((x0+x1)/2)*s, H - pad - y1*s);
+  c.scale(s,s);
+  c.fillStyle = "rgba(10,40,24,.25)";
+  c.beginPath(); c.ellipse(0, 3, (x1-x0)*.34, (x1-x0)*.1, 0, 0, 6.3); c.fill();
+  DIBUJO[id](c, 0.7, {});
+  c.restore();
+}
+function tarjeta(id){
+  const s = ESPECIES[id];
+  const b = document.createElement("button");
+  b.className = "carta enfocable" + (id === seleccion ? " sel" : "");
+  b.type = "button";
+  b.setAttribute("data-especie", id);
+  const marco = document.createElement("div"); marco.className = "marco";
+  const cv = document.createElement("canvas");
+  marco.appendChild(cv); b.appendChild(marco);
+  const datos = document.createElement("div"); datos.className = "datos";
+  const nm = document.createElement("div"); nm.className = "nom"; nm.textContent = s.nombre;
+  const et = document.createElement("div");
+  et.className = "etiq " + (s.dieta === "herbivoro" ? "herb" : "carn");
+  et.textContent = s.dieta === "herbivoro" ? "HERBÍVORO" : "CARNÍVORO";
+  const df = document.createElement("div"); df.className = "def";
+  df.textContent = s.defensa + ": " + s.desc;
+  datos.appendChild(nm); datos.appendChild(et); datos.appendChild(df);
+  b.appendChild(datos);
+  b.addEventListener("click", () => { seleccion = id; empezarPartida(); });
+  requestAnimationFrame(() => retrato(id, cv));
+  return b;
+}
+function construirEleccion(){
+  const lh = document.getElementById("listaHerb"), lc = document.getElementById("listaCarn");
+  lh.innerHTML = ""; lc.innerHTML = "";
+  ORDEN_HERB.forEach(id => lh.appendChild(tarjeta(id)));
+  ORDEN_CARN.forEach(id => lc.appendChild(tarjeta(id)));
+}
+function irA(p, idx){
+  [pInicio,pEleccion,pPausa,pTerr,pGuardar,pClave,pFinal].forEach(x => x.classList.add("oculta"));
+  document.body.classList.toggle("enMenu", !!p);
+  if (p){ p.classList.remove("oculta"); enfocarPantalla(p, idx); }
+  else foco.lista = [];
+}
+function etiquetasAjustes(){
+  document.getElementById("btnMusica").textContent = "MÚSICA: " + (musicaOn ? "SÍ" : "NO");
+  document.getElementById("btnEfectos").textContent = "EFECTOS: " + (efectosOn ? "SÍ" : "NO");
+  document.getElementById("btnGraficos").textContent = "GRÁFICOS: " + (DETALLE ? "ALTOS" : "RÁPIDOS");
+  const t = "DIFICULTAD: " + D().nombre;
+  document.getElementById("btnDificultad").textContent = t;
+  document.getElementById("btnDificultadInicio").textContent = t;
+}
+function rotarDificultad(){
+  dif = (dif + 1) % DIFICULTADES.length;
+  etiquetasAjustes();
+  if (estado === "jugando" || estado === "pausa") ajustarDepredadores();
+  aviso("Dificultad " + D().nombre.toLowerCase());
+}
+function empezarPartida(){
+  dino.id = seleccion; partidaNueva(); irA(null);
+  estado = "eclosion"; tiempoEclosion = 0;
+  iniciarMusica();
+}
+function pausar(activo){
+  if (activo && estado === "jugando"){
+    estado = "pausa";
+    document.getElementById("pausaTexto").textContent =
+      ESPECIES[dino.id].nombre + " · " + ETAPAS[etapa].nombre + " · " + puntos + " puntos";
+    etiquetasAjustes();
+    irA(pPausa);
+  } else if (!activo && estado === "pausa"){
+    estado = "jugando"; anterior = performance.now(); irA(null);
+  }
+}
+function irAEleccion(){
+  abrirAudio(); construirEleccion(); estado = "eleccion";
+  const orden = ORDEN_HERB.concat(ORDEN_CARN);
+  irA(pEleccion, Math.max(0, orden.indexOf(seleccion)));
+}
+document.getElementById("btnElegir").addEventListener("click", irAEleccion);
+document.getElementById("btnCambiar").addEventListener("click", irAEleccion);
+document.getElementById("btnSeguir").addEventListener("click", () => pausar(false));
+document.getElementById("btnSeguirTerr").addEventListener("click", () => {
+  irA(null); estado = "jugando"; anterior = performance.now();
+  aviso("Bienvenido a " + esc.nombre);
+});
+document.getElementById("btnMusica").addEventListener("click", () => {
+  musicaOn = !musicaOn; etiquetasAjustes();
+  if (musicaOn) iniciarMusica();
+});
+document.getElementById("btnEfectos").addEventListener("click", () => {
+  efectosOn = !efectosOn; etiquetasAjustes();
+});
+const zD = document.getElementById("zonaDefensa");
+if (zD) zD.addEventListener("click", usarDefensa);
+const zP = document.getElementById("zonaPausa");
+if (zP) zP.addEventListener("click", () => pausar(estado === "jugando"));
+document.getElementById("btnGuardar").addEventListener("click", abrirGuardar);
+document.getElementById("btnVolverGuardar").addEventListener("click", () => { estado = "pausa"; irA(pPausa); });
+document.getElementById("btnContinuar").addEventListener("click", () => { abrirAudio(); construirTeclado(); abrirClave(); });
+document.getElementById("btnVolverClave").addEventListener("click", () => { estado = "inicio"; irA(pInicio); });
+for (let i=0;i<3;i++){
+  const b = pGuardar.querySelector('[data-ranura="' + i + '"]');
+  if (b) b.addEventListener("click", (function(n){ return function(){ mostrarClave(n); }; })(i));
+}
+document.getElementById("btnDificultad").addEventListener("click", rotarDificultad);
+document.getElementById("btnDificultadInicio").addEventListener("click", rotarDificultad);
+document.getElementById("btnMenu").addEventListener("click", () => {
+  estado = "inicio"; irA(pInicio);
+});
+document.getElementById("btnFinMenu").addEventListener("click", () => {
+  estado = "inicio"; irA(pInicio);
+});
+document.getElementById("btnFinSeguir").addEventListener("click", () => {
+  nido = null;                       // la cría ya nació: sigues jugando libre
+  estado = "jugando"; anterior = performance.now(); irA(null);
+});
+document.getElementById("btnGraficos").addEventListener("click", () => {
+  autoCalidad = false; DETALLE = !DETALLE; limpiarCache(); etiquetasAjustes();
+  aviso(DETALLE ? "Gráficos altos" : "Gráficos rápidos");
+});
+document.addEventListener("visibilitychange", () => { if (document.hidden) pausar(true); });
+
+/* =======================================================
+   Bucle
+   ======================================================= */
+let anterior = performance.now(), reloj = 0, medidorF = 0, medidorT = 0;
+function bucle(ahora){
+  const dt = Math.min((ahora-anterior)/1000, .05);
+  anterior = ahora; reloj += dt;
+  leerMando(dt);
+  revisarPausaMantenida();
+  // si el televisor no da abasto, baja la calidad solo
+  medidorF++; medidorT += dt;
+  if (medidorT >= 2.5){
+    const fps = medidorF/medidorT;
+    if (autoCalidad && DETALLE && fps < 34){
+      DETALLE = false; limpiarCache();
+      aviso("Gráficos ajustados para ir más fluido");
+    }
+    medidorF = 0; medidorT = 0;
+  }
+  if (estado === "eclosion"){
+    tiempoEclosion += dt;
+    if (azar() < dt*6 && tiempoEclosion > .8) sCascara();
+    if (tiempoEclosion >= 3){
+      estado = "jugando";
+      chispas(CUEVA.x+150, CUEVA.y+90, "#F3E4C4", 24, 210);
+      tono(700,.12,"triangle",.09);
+      setTimeout(()=>tono(900,.16,"triangle",.09),110);
+      aviso("¡Naciste! Eres un " + ESPECIES[dino.id].nombre);
+    }
+  } else if (estado === "jugando"){
+    actualizar(dt);
+  }
+  if (musicaOn) iniciarMusica();
+  programarMusica();
+  ajustarMusica(estado === "jugando" && depredadores.some(p => p.cazando), estado === "jugando");
+  if (estado !== "inicio" && estado !== "eleccion") dibujar(reloj);
+  requestAnimationFrame(bucle);
+}
+generarMundo(ESCENARIOS[0]);
+etiquetasAjustes();
+irA(pInicio);
+requestAnimationFrame(bucle);
+})();
+</script>
+</body>
+</html>
