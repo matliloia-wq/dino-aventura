@@ -8,7 +8,7 @@
   "id": "/dino-aventura/",
   "display": "fullscreen",
   "display_override": ["fullscreen", "standalone"],
-  "orientation": "landscape",
+  "orientation": "portrait",
   "background_color": "#0d1f12",
   "theme_color": "#0d1f12",
   "categories": ["games", "kids"],

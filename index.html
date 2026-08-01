@@ -1,22 +1,22 @@
 <!DOCTYPE html>
 <html lang="es">
-<link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0d1f12">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="apple-touch-icon" href="icon-192.png">
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('sw.js');
-      });
-    }
-  </script>
-  <head>
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Dino Aventura TV</title>
+<title>Dino Aventura</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d1f12">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js');
+    });
+  }
+</script>
 <style>
   :root{ --crema:#FFF3D6; --ambar:#F2A93B; --fresa:#E0663A; --seguro:4.5vmin; }
   *{box-sizing:border-box;}
@@ -173,6 +173,25 @@
   #teclado{gap:7px;max-width:96vw;}
   .tec{width:46px;height:44px;font-size:20px;border-width:2px;border-radius:10px;}
   .tec.ancha{width:106px;font-size:14px;}
+
+  /* ================= celulares: pantallas angostas ================= */
+  @media (max-width: 560px){
+    .pantalla p{font-size:clamp(15px,4.3vw,21px);}
+    .pantalla{gap:11px;}
+    .jugar{font-size:20px;padding:13px 24px;}
+    .menu{width:min(430px,94vw);}
+    .menu .jugar{min-width:0;width:100%;margin-bottom:9px;}
+    .rejilla{grid-template-columns:repeat(auto-fill,minmax(134px,1fr));gap:9px;}
+    .marco, .marco canvas{height:104px;}
+    .datos .nom{font-size:17px;}
+    .datos .def{font-size:13px;line-height:1.25;}
+    .etiq{font-size:11px;padding:3px 10px;}
+    .grupo h2{font-size:15px;}
+    #pausa .menu .jugar{font-size:15px;padding:13px 8px;}
+    .claveTexto{font-size:26px;letter-spacing:3px;}
+    .tec{width:42px;height:46px;font-size:19px;}
+    .tec.ancha{width:96px;}
+  }
 </style>
 </head>
 <body>
@@ -186,7 +205,7 @@
 <div class="pantalla" id="inicio">
   <h1>DINO AVENTURA</h1>
   <p>Naces de un huevo y creces hasta ser un dinosaurio adulto. Come lo que le toca a tu especie, bebe agua y escapa de los depredadores de tierra, aire y agua.</p>
-  <p>Muévete con la cruceta del control. <strong>OK</strong> usa la defensa de tu especie y si mantienes <strong>OK</strong> dos segundos se pausa.</p>
+  <p id="ayudaInicio">Muévete con la cruceta del control. <strong>OK</strong> usa la defensa de tu especie y si mantienes <strong>OK</strong> dos segundos se pausa.</p>
   <button class="jugar enfocable" id="btnElegir">ELEGIR DINOSAURIO</button>
   <button class="jugar gris enfocable" id="btnContinuar">CONTINUAR CON CLAVE</button>
   <button class="jugar gris enfocable" id="btnDificultadInicio">DIFICULTAD: NORMAL</button>
@@ -194,7 +213,7 @@
 
 <div class="pantalla oculta" id="eleccion">
   <h1>ELIGE TU DINOSAURIO</h1>
-  <p style="opacity:.8">Muévete con la cruceta y pulsa <strong>OK</strong> para nacer</p>
+  <p style="opacity:.8" id="ayudaEleccion">Muévete con la cruceta y pulsa <strong>OK</strong> para nacer</p>
   <div class="grupo"><h2>Herbívoros · comen plantas</h2><div class="rejilla" id="listaHerb"></div></div>
   <div class="grupo"><h2>Carnívoros · comen carne</h2><div class="rejilla" id="listaCarn"></div></div>
   <div style="height:var(--seguro)"></div>
@@ -208,6 +227,7 @@
     <button class="jugar gris enfocable" id="btnMusica">MÚSICA: SÍ</button>
     <button class="jugar gris enfocable" id="btnEfectos">EFECTOS: SÍ</button>
     <button class="jugar gris enfocable" id="btnGraficos">GRÁFICOS: ALTOS</button>
+    <button class="jugar gris enfocable" id="btnInterfaz">INTERFAZ: NORMAL</button>
     <button class="jugar gris enfocable" id="btnGuardar">GUARDAR PARTIDA</button>
     <button class="jugar gris enfocable" id="btnDificultad">DIFICULTAD: NORMAL</button>
     <button class="jugar gris enfocable" id="btnCambiar">CAMBIAR DINOSAURIO</button>
@@ -1552,6 +1572,14 @@ const lienzo = document.getElementById("lienzo");
 const ctx = lienzo.getContext("2d");
 const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let anchoCSS=0, altoCSS=0, escala=1, vistaW=900, vistaH=600, k=1;
+/* UI = cuánto se agrandan barras, botones y textos del HUD.
+   uiPref lo elige el jugador en PAUSA (normal / grande / muy grande) y el
+   resto lo calcula solo según el tamaño real de la pantalla. */
+let uiPref = 1, UI = 1;
+const TAMANOS_UI = [1, 1.22, 1.45];
+const NOMBRES_UI = ["NORMAL", "GRANDE", "MUY GRANDE"];
+const nombreInterfaz = () => NOMBRES_UI[Math.max(0, TAMANOS_UI.indexOf(uiPref))];
+try { const g = localStorage.getItem("dinoUI"); if (TAMANOS_UI.indexOf(parseFloat(g)) >= 0) uiPref = parseFloat(g); } catch(e){}
 function ajustar(){
   anchoCSS = window.innerWidth; altoCSS = window.innerHeight;
   // Nunca se dibuja a más de ANCHO_MAX píxeles: en un televisor 4K renderizar a
@@ -1560,9 +1588,15 @@ function ajustar(){
   const f = Math.min(1, ANCHO_MAX / Math.max(1, anchoCSS));
   lienzo.width = Math.max(320, Math.round(anchoCSS*f));
   lienzo.height = Math.max(240, Math.round(altoCSS*f));
-  const base = anchoCSS > altoCSS ? 1020 : 680;
+  let base = anchoCSS > altoCSS ? 1020 : 680;
+  // En un celular la base fija dejaba la escala en ~0.6 y todo salía diminuto.
+  // Acercamos la cámara (se ve menos mundo) hasta llegar a una escala usable.
+  const escMin = anchoCSS > altoCSS ? .98 : .90;
+  base = Math.min(base, lienzo.width/escMin);
   escala = lienzo.width/base;
   vistaW = lienzo.width/escala; vistaH = lienzo.height/escala; k = vistaW/anchoCSS;
+  // en vistas angostas el HUD necesita un empujón extra para el dedo y la vista
+  UI = uiPref * Math.min(1.35, Math.max(1, 600/vistaW));
   RES = Math.min(1.3, Math.max(.75, escala));
   limpiarCache();
 }
@@ -2915,17 +2949,18 @@ function barraHUD(x, y, w, h, valor, c1, c2, texto, bajo){
 /* ---------- minimapa: dónde están los pasadizos ---------- */
 function dibujarMinimapa(M){
   if (estado !== "jugando" && estado !== "pausa") return;
-  const w = MODO_TV ? 176 : 116, h = Math.round(w * MUNDO.h/MUNDO.w);
-  const x0 = M, y0 = vistaH - M - h - (MODO_TV ? 30 : 78);
+  const u = MODO_TV ? 1 : UI;
+  const w = (MODO_TV ? 176 : 116)*u, h = Math.round(w * MUNDO.h/MUNDO.w);
+  const x0 = M, y0 = vistaH - M - h - (MODO_TV ? 30 : 78*u);
   const px = x => x0 + x/MUNDO.w*w, py = y => y0 + y/MUNDO.h*h;
   ctx.save();
-  ctx.beginPath(); ctx.roundRect(x0-6, y0-6, w+12, h+12, 10);
+  ctx.beginPath(); ctx.roundRect(x0-6*u, y0-6*u, w+12*u, h+12*u, 10*u);
   ctx.fillStyle = "rgba(6,30,20,.55)"; ctx.fill();
-  ctx.strokeStyle = "rgba(255,243,214,.5)"; ctx.lineWidth = 2.5; ctx.stroke();
+  ctx.strokeStyle = "rgba(255,243,214,.5)"; ctx.lineWidth = 2.5*u; ctx.stroke();
   const punto = (x, y, r, col, borde) => {
-    ctx.beginPath(); ctx.arc(px(x), py(y), r, 0, TAU);
+    ctx.beginPath(); ctx.arc(px(x), py(y), r*u, 0, TAU);
     ctx.fillStyle = col; ctx.fill();
-    if (borde){ ctx.strokeStyle = borde; ctx.lineWidth = 1.8; ctx.stroke(); }
+    if (borde){ ctx.strokeStyle = borde; ctx.lineWidth = 1.8*u; ctx.stroke(); }
   };
   punto(CUEVA.x, CUEVA.y, 5, "#C9A85E", "rgba(255,243,214,.9)");
   for (const z of pasadizos){
@@ -2953,11 +2988,13 @@ function posicionarZonas(){
 }
 function dibujarHUD(){
   const M = Math.min(vistaW, vistaH) * (MODO_TV ? .048 : .026);
-  const bw = MODO_TV ? 320 : 240, bh = MODO_TV ? 30 : 25;
+  // las barras crecen con UI pero nunca invaden el marcador de la derecha
+  const bw = MODO_TV ? 320 : Math.min(240*UI, vistaW*.46), bh = (MODO_TV ? 30 : 25)*(MODO_TV?1:UI);
+  const sep = 9*(MODO_TV?1:UI);
   barraHUD(M, M, bw, bh, hudH, "#8FE07A", "#4FA33F", "HAMBRE", dino.hambre < 25);
-  barraHUD(M, M+bh+9, bw, bh, hudS, "#7FE0F5", "#2C86A8", "SED", dino.sed < 25);
+  barraHUD(M, M+bh+sep, bw, bh, hudS, "#7FE0F5", "#2C86A8", "SED", dino.sed < 25);
 
-  const t1 = MODO_TV ? 46 : 34, t2 = MODO_TV ? 19 : 15;
+  const t1 = MODO_TV ? 46 : 34*UI, t2 = MODO_TV ? 19 : 15*Math.min(UI, 1.6);
   ctx.textAlign = "right";
   ctx.fillStyle = "#F2A93B";
   ctx.font = "bold " + t1 + "px 'Trebuchet MS', sans-serif";
@@ -2970,7 +3007,7 @@ function dibujarHUD(){
   ctx.textAlign = "left";
 
   // botón/indicador de defensa
-  const R = MODO_TV ? 62 : 48;
+  const R = MODO_TV ? 62 : 48*UI;
   defX = vistaW-M-R; defY = vistaH-M-R; defR = R;
   const cargando = etapa >= 1 && dino.defRecarga > 0;
   const listo = etapa >= 1 && dino.defRecarga <= 0;
@@ -3025,14 +3062,15 @@ function dibujarHUD(){
   // recordatorio de la misión y estado del nido
   if (mision === "buscar" || mision === "guiar"){
     ctx.fillStyle = "#FFD9E4"; ctx.textAlign = "left";
-    ctx.font = "bold " + (MODO_TV ? 21 : 16) + "px 'Trebuchet MS', sans-serif";
+    ctx.font = "bold " + (MODO_TV ? 21 : 16*UI) + "px 'Trebuchet MS', sans-serif";
     ctx.fillText(mision === "buscar"
       ? "Busca pareja en " + ESCENARIOS[escPareja].nombre
-      : "Lleva a tu pareja a la cueva", M, M + (MODO_TV ? 108 : 86));
+      : "Lleva a tu pareja a la cueva", M, M + (MODO_TV ? 108 : 86*UI));
   } else if (mision === "anidar" && nido){
-    const bw2 = MODO_TV ? 320 : 240, bh2 = MODO_TV ? 30 : 25, M2 = M + 2*(bh2+9);
+    const bw2 = MODO_TV ? 320 : Math.min(240*UI, vistaW*.46),
+          bh2 = MODO_TV ? 30 : 25*UI, M2 = M + 2*(bh2 + (MODO_TV?9:9*UI));
     barraHUD(M, M2, bw2, bh2, nido.progreso*100, "#FFE08A", "#D9A63C", "NACE", false);
-    barraHUD(M, M2+bh2+9, bw2, bh2, nido.integridad, "#F2A0A0", "#B3392E", "HUEVO", nido.integridad < 35);
+    barraHUD(M, M2+bh2+(MODO_TV?9:9*UI), bw2, bh2, nido.integridad, "#F2A0A0", "#B3392E", "HUEVO", nido.integridad < 35);
   }
 
   if (MODO_TV){
@@ -3040,13 +3078,13 @@ function dibujarHUD(){
     ctx.font = "bold " + 19 + "px 'Trebuchet MS', sans-serif";
     ctx.fillText("✛ Mover     OK Defensa     MANTÉN OK 2s Pausa", M, vistaH-M-6);
   } else {
-    pauX = M+34; pauY = vistaH-M-34; pauR = 34;
+    pauR = 34*UI; pauX = M+pauR; pauY = vistaH-M-pauR;
     ctx.beginPath(); ctx.arc(pauX, pauY, pauR, 0, TAU);
     ctx.fillStyle = "rgba(6,30,20,.55)"; ctx.fill();
-    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(255,243,214,.85)"; ctx.stroke();
+    ctx.lineWidth = 4*UI; ctx.strokeStyle = "rgba(255,243,214,.85)"; ctx.stroke();
     ctx.fillStyle = "#FFF3D6";
-    ctx.fillRect(pauX-9, pauY-12, 6, 24);
-    ctx.fillRect(pauX+3, pauY-12, 6, 24);
+    ctx.fillRect(pauX-9*UI, pauY-12*UI, 6*UI, 24*UI);
+    ctx.fillRect(pauX+3*UI, pauY-12*UI, 6*UI, 24*UI);
   }
 
   if (!MODO_TV){
@@ -3055,7 +3093,7 @@ function dibujarHUD(){
   }
 
   if (avisoT > 0 && avisoTxt){
-    const ta = MODO_TV ? 28 : 21;
+    const ta = MODO_TV ? 28 : 21*UI;
     ctx.font = "bold " + ta + "px 'Trebuchet MS', sans-serif";
     ctx.textAlign = "center";
     const w = ctx.measureText(avisoTxt).width + 44, hh = ta*1.9;
@@ -3461,6 +3499,8 @@ function etiquetasAjustes(){
   document.getElementById("btnMusica").textContent = "MÚSICA: " + (musicaOn ? "SÍ" : "NO");
   document.getElementById("btnEfectos").textContent = "EFECTOS: " + (efectosOn ? "SÍ" : "NO");
   document.getElementById("btnGraficos").textContent = "GRÁFICOS: " + (DETALLE ? "ALTOS" : "RÁPIDOS");
+  const bi = document.getElementById("btnInterfaz");
+  if (bi) bi.textContent = "INTERFAZ: " + nombreInterfaz();
   const t = "DIFICULTAD: " + D().nombre;
   document.getElementById("btnDificultad").textContent = t;
   document.getElementById("btnDificultadInicio").textContent = t;
@@ -3534,6 +3574,22 @@ document.getElementById("btnGraficos").addEventListener("click", () => {
   autoCalidad = false; DETALLE = !DETALLE; limpiarCache(); etiquetasAjustes();
   aviso(DETALLE ? "Gráficos altos" : "Gráficos rápidos");
 });
+document.getElementById("btnInterfaz").addEventListener("click", () => {
+  const i = TAMANOS_UI.indexOf(uiPref);
+  uiPref = TAMANOS_UI[(i < 0 ? 0 : i + 1) % TAMANOS_UI.length];
+  try { localStorage.setItem("dinoUI", String(uiPref)); } catch(e){}
+  ajustar(); etiquetasAjustes();
+  aviso("Interfaz " + nombreInterfaz().toLowerCase());
+});
+/* las instrucciones cambian según se juegue con el dedo o con el control */
+if (!MODO_TV){
+  const a1 = document.getElementById("ayudaInicio");
+  const a2 = document.getElementById("ayudaEleccion");
+  if (a1) a1.innerHTML = "Apoyá el dedo en cualquier parte de la pantalla y arrastralo para moverte. " +
+    "El botón redondo de la derecha usa la defensa de tu especie (y hace <strong>CRECER</strong> a la cría); " +
+    "el de la izquierda pausa el juego.";
+  if (a2) a2.textContent = "Tocá el dinosaurio que quieras para nacer";
+}
 document.addEventListener("visibilitychange", () => { if (document.hidden) pausar(true); });
 
 /* =======================================================
