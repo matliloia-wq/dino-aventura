@@ -174,6 +174,13 @@
   .tec{width:46px;height:44px;font-size:20px;border-width:2px;border-radius:10px;}
   .tec.ancha{width:106px;font-size:14px;}
 
+  /* ---- carteles importantes (crecer, territorio nuevo, historia) ---- */
+  .pantalla{overflow-y:auto;justify-content:safe center;}
+  .pantalla > *{flex-shrink:0;}
+  #cartel p{max-width:min(620px,92vw);line-height:1.45;text-align:left;}
+  #cartel b{color:var(--ambar);}
+  #cartel h1{margin-bottom:0;}
+
   /* ================= celulares: pantallas angostas ================= */
   @media (max-width: 560px){
     .pantalla p{font-size:clamp(15px,4.3vw,21px);}
@@ -270,6 +277,12 @@
     <button class="jugar enfocable" id="btnFinMenu">VOLVER AL MENÚ</button>
     <button class="jugar gris enfocable" id="btnFinSeguir">SEGUIR JUGANDO</button>
   </div>
+</div>
+
+<div class="pantalla oculta" id="cartel">
+  <h1 id="cartelTitulo"></h1>
+  <p id="cartelTexto"></p>
+  <button class="jugar enfocable" id="btnCartel">CONTINUAR</button>
 </div>
 
 <div class="pantalla oculta" id="territorio">
@@ -1470,7 +1483,27 @@ const ESCENARIOS = [
   { id:"volcan", nombre:"Tierras Volcánicas", texto:"No pises la lava. Aquí manda el más grande.",
     suelo:"#5A4038", manchas:"rgba(96,66,54,.5)", orilla:"#3E2C25", agua1:"#57B4C4", agua2:"#2A6E80",
     vegetacion:"quemado", nVeg:18, nRocas:30, nMatas:7, rio:false, nCharcos:4, lava:6,
-    sed:1.5, vineta:"rgba(60,14,6,.45)", fauna:["tiranosaurio","alosaurio","quetzal"], raiz:130.81, modo:"menor" }
+    sed:1.5, vineta:"rgba(60,14,6,.45)", fauna:["tiranosaurio","alosaurio","quetzal"], raiz:130.81, modo:"menor" },
+  { id:"playa", nombre:"Playa Costera", texto:"Arena caliente y un mar que esconde algo enorme.",
+    suelo:"#E0CB94", manchas:"rgba(206,182,124,.45)", orilla:"#C9AE72", agua1:"#63D0E8", agua2:"#2A7FA8",
+    vegetacion:"palmera", nVeg:20, nRocas:14, nMatas:7, rio:true, nCharcos:7, lava:0,
+    sed:1.3, vineta:"rgba(140,160,170,.20)", fauna:["pteranodon","mosasaurio","raptor"], raiz:174.61, modo:"mayor" },
+  { id:"manglar", nombre:"Manglares", texto:"Raíces por todos lados y ojos que asoman en el barro.",
+    suelo:"#4A6B4A", manchas:"rgba(96,128,84,.45)", orilla:"#6E6440", agua1:"#59A88E", agua2:"#2A5B4A",
+    vegetacion:"seco", nVeg:30, nRocas:9, nMatas:22, rio:true, nCharcos:14, lava:0,
+    sed:.85, vineta:"rgba(10,34,26,.45)", fauna:["sarcosuchus","raptor","pteranodon"], raiz:123.47, modo:"menor" },
+  { id:"delta", nombre:"Delta de las Islas", texto:"Mil islitas de agua dulce. Se cruza nadando.",
+    suelo:"#5C8A5E", manchas:"rgba(140,180,120,.38)", orilla:"#BFA76A", agua1:"#5FC0D6", agua2:"#2E7E9E",
+    vegetacion:"palmera", nVeg:26, nRocas:10, nMatas:15, rio:true, nCharcos:16, lava:0,
+    sed:.8, vineta:"rgba(12,40,34,.30)", fauna:["sarcosuchus","mosasaurio","quetzal"], raiz:196.00, modo:"mayor" },
+  { id:"patagonia", nombre:"Patagonia Nevada", texto:"Nieve, coníferas y muy poca comida a la vista.",
+    suelo:"#C6CFD2", manchas:"rgba(240,246,248,.5)", orilla:"#9FA9A6", agua1:"#9BDCEE", agua2:"#3E86A6",
+    vegetacion:"conifera", nVeg:26, nRocas:24, nMatas:9, rio:true, nCharcos:4, lava:0,
+    sed:1.15, vineta:"rgba(60,80,96,.42)", fauna:["alosaurio","quetzal","tiranosaurio"], raiz:87.31, modo:"menor" },
+  { id:"caverna", nombre:"Cavernas Profundas", texto:"Oscuro, angosto y con cosas que no ves venir.",
+    suelo:"#4A4448", manchas:"rgba(64,58,64,.5)", orilla:"#3A3438", agua1:"#4E9EB8", agua2:"#22505E",
+    vegetacion:"quemado", nVeg:12, nRocas:36, nMatas:6, rio:false, nCharcos:8, lava:2,
+    sed:1.2, vineta:"rgba(4,8,14,.60)", fauna:["tiranosaurio","raptor","sarcosuchus"], raiz:73.42, modo:"menor" }
 ];
 const ETAPAS = [
   { nombre:"Cría", esc:.50 }, { nombre:"Juvenil", esc:.66 },
@@ -1709,7 +1742,8 @@ const cfg = () => ESPECIES[dino.id];
 const D = () => DIFICULTADES[dif];
 const escalaDino = () => ETAPAS[etapa].esc * TALLA[dino.id];
 const etapaDeNivel = n => n<3?0 : n<5?1 : n<7?2 : 3;
-const escenariosAbiertos = n => Math.min(ESCENARIOS.length, 1 + Math.floor(n/2));
+const PUNTOS_ESCENARIO = 100;   // cada 100 puntos se abre un territorio nuevo
+const escenariosAbiertos = pts => Math.min(ESCENARIOS.length, 1 + Math.floor(pts/PUNTOS_ESCENARIO));
 
 function nuevaComida(forzar){
   const tipo = forzar || (azar()<.5 ? elegir(PLANTAS) : elegir(CARNES));
@@ -1792,7 +1826,7 @@ function viajar(destino){
   sNivel();
 }
 function partidaNueva(){
-  puntos=0; nivel=1; desbloqueados = escenariosAbiertos(1);
+  puntos=0; nivel=1; desbloqueados = escenariosAbiertos(0);
   dino.hambre=100; dino.sed=100; dino.enfermo=0; dino.susto=0;
   dino.defTiempo=0; dino.defRecarga=0; dino.mira=1; dino.paso=0; dino.vx=0; dino.vy=0;
   hudH = 100; hudS = 100;
@@ -2105,7 +2139,19 @@ function entrada(){
 /* =======================================================
    Avisos y partículas
    ======================================================= */
-function aviso(txt){ avisoTxt = txt; avisoT = 2.3; }
+function aviso(txt){ avisoTxt = txt; avisoT = 4.3; }
+/* parte un texto en lineas que quepan en "ancho" con la fuente activa */
+function partirTexto(txt, ancho){
+  const palabras = String(txt).split(" ");
+  const lineas = []; let linea = "";
+  for (const w of palabras){
+    const prueba = linea ? linea + " " + w : w;
+    if (linea && ctx.measureText(prueba).width > ancho){ lineas.push(linea); linea = w; }
+    else linea = prueba;
+  }
+  if (linea) lineas.push(linea);
+  return lineas.length ? lineas : [String(txt)];
+}
 function chispas(x,y,color,n=10,vel=120){
   for (let i=0;i<n;i++){
     const a=azar()*Math.PI*2, v=entre(vel*.35,vel);
@@ -2122,7 +2168,12 @@ function iniciarMision(){
   for (let i=0; i<desbloqueados && i<ESCENARIOS.length; i++) if (i !== escIdx) opciones.push(i);
   escPareja = opciones.length ? elegir(opciones) : escIdx;
   colocarPareja();
-  aviso("¡Ya eres adulto! Busca pareja en " + ESCENARIOS[escPareja].nombre);
+  cartel("Última misión",
+    "Ya sos adulto. Ahora tenés que encontrar <b>pareja</b>: está esperando en <b>" +
+    ESCENARIOS[escPareja].nombre + "</b>.<br><br>" +
+    "Viajá hasta ahí por los pasadizos, acercate a ella y llevala de vuelta a tu cueva. " +
+    "Después van a poner un huevo y vas a tener que <b>defenderlo</b> de los depredadores " +
+    "hasta que nazca la cría. Quedate cerca del nido: ahí hacen la mitad de daño.", "¡A BUSCARLA!");
   sNivel();
 }
 function nuevaPareja(){
@@ -2353,24 +2404,47 @@ function comer(c){
     aviso(carn ? "¡Puaj! Los carnívoros no comen plantas" : "¡Puaj! Los herbívoros no comen carne");
   }
 }
+function cartelCrecer(){
+  const c = cfg();
+  let t = "Ahora sos <b>" + ETAPAS[etapa].nombre.toLowerCase() + "</b> y sos más grande.<br><br>";
+  if (etapa === 1)
+    t += "Ya tenés tu defensa: <b>" + c.defensa + "</b>. " + c.desc + ". " +
+         "Tocá el botón redondo de la derecha cuando un depredador se te acerque; " +
+         "después tarda un rato en volver a cargarse.";
+  else if (etapa === 2)
+    t += "Tu <b>" + c.defensa + "</b> ahora recarga bastante más rápido" +
+         (c.dieta === "carnivoro" ? " y ya podés cazar herbívoros más grandes." : ".");
+  else
+    t += "Sos un adulto completo: tu <b>" + c.defensa + "</b> se recarga en pocos segundos. " +
+         "Es hora de buscar pareja y formar tu propio nido.";
+  cartel("¡Creciste!", t, "SEGUIR");
+}
 function sumar(n){
   puntos += n;
+  const etAntes = etapa, abiertosAntes = desbloqueados;
   const nuevo = Math.floor(puntos/PUNTOS_NIVEL) + 1;
-  if (nuevo > nivel){
-    const etAntes = etapa, abiertosAntes = desbloqueados;
+  const subeNivel = nuevo > nivel;
+  if (subeNivel){
     nivel = nuevo; sNivel();
     etapa = etapaDeNivel(nivel);
-    desbloqueados = escenariosAbiertos(nivel);
     ajustarDepredadores();
-    if (desbloqueados > abiertosAntes){
-      generarPasadizos();
-      aviso("¡Se abrió un pasadizo hacia " + ESCENARIOS[desbloqueados-1].nombre + "!");
-      chispas(dino.x, dino.y-40, "#9BE0FF", 22, 200);
-    } else if (etapa > etAntes){
-      aviso("¡Creciste! Ahora eres " + ETAPAS[etapa].nombre.toLowerCase());
-      chispas(dino.x, dino.y-40, "#FFE08A", 22, 200);
-    } else aviso("¡Nivel " + nivel + "!");
   }
+  // los territorios ya no dependen del nivel: se abren cada 100 puntos
+  desbloqueados = escenariosAbiertos(puntos);
+  if (etapa > etAntes){
+    chispas(dino.x, dino.y-40, "#FFE08A", 22, 200);
+    cartelCrecer();
+  }
+  if (desbloqueados > abiertosAntes){
+    generarPasadizos();
+    const e = ESCENARIOS[desbloqueados-1];
+    chispas(dino.x, dino.y-40, "#9BE0FF", 22, 200);
+    cartel("¡Nuevo territorio!",
+      "Se abrió un pasadizo hacia <b>" + e.nombre + "</b>.<br><br>" + e.texto +
+      "<br><br>Buscá la grieta brillante que aparece en el mapa y metete adentro para viajar. " +
+      "En el minimapa de abajo a la izquierda la vas a ver marcada.", "¡VAMOS!");
+  }
+  if (subeNivel && etapa === etAntes && desbloqueados === abiertosAntes) aviso("¡Nivel " + nivel + "!");
 }
 function actualizar(dt){
   const {dx,dy} = entrada(); const c = cfg();
@@ -3136,17 +3210,31 @@ function dibujarHUD(){
   }
 
   if (avisoT > 0 && avisoTxt){
-    const ta = MODO_TV ? 28 : 21*UI;
-    ctx.font = "bold " + ta + "px 'Trebuchet MS', sans-serif";
+    /* La caja se dibujaba como "ancho del texto + 44" sin ningun tope y los
+       mensajes largos se salian de la pantalla. Ahora la letra se achica y el
+       texto se parte en lineas hasta que entra. */
+    const M2 = Math.max(10, vistaW*.03);
+    const anchoMax = vistaW - M2*2, textoMax = anchoMax - 40;
+    let ta = MODO_TV ? 28 : 21*UI, lineas;
+    for (let i=0; i<9; i++){
+      ctx.font = "bold " + ta + "px 'Trebuchet MS', sans-serif";
+      lineas = partirTexto(avisoTxt, textoMax);
+      if (lineas.length <= 3 || ta <= 11) break;
+      ta *= .87;
+    }
     ctx.textAlign = "center";
-    const w = ctx.measureText(avisoTxt).width + 44, hh = ta*1.9;
+    let anchoTxt = 0;
+    for (const L of lineas) anchoTxt = Math.max(anchoTxt, ctx.measureText(L).width);
+    const w = Math.min(anchoMax, anchoTxt + 40);
+    const paso = ta*1.24, hh = paso*lineas.length + ta*.75;
     const ax = vistaW/2 - w/2, ay = vistaH*.13;
     ctx.globalAlpha = Math.min(1, avisoT*2.2);
-    ctx.beginPath(); ctx.roundRect(ax, ay, w, hh, hh/2);
+    ctx.beginPath(); ctx.roundRect(ax, ay, w, hh, Math.min(hh/2, ta*1.1));
     ctx.fillStyle = "rgba(6,30,20,.85)"; ctx.fill();
     ctx.lineWidth = 3.5; ctx.strokeStyle = "#F2A93B"; ctx.stroke();
     ctx.fillStyle = "#FFF3D6"; ctx.textBaseline = "middle";
-    ctx.fillText(avisoTxt, vistaW/2, ay + hh/2 + 1);
+    const y0 = ay + hh/2 - paso*(lineas.length-1)/2 + 1;
+    for (let i=0;i<lineas.length;i++) ctx.fillText(lineas[i], vistaW/2, y0 + paso*i);
     ctx.textBaseline = "alphabetic"; ctx.globalAlpha = 1; ctx.textAlign = "left";
   }
 }
@@ -3287,7 +3375,12 @@ function dibujar(t){
    ======================================================= */
 const ESPECIE_LISTA = ORDEN_HERB.concat(ORDEN_CARN);
 const ALFA_CLAVE = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-const TOPE_CLAVE = { ranura:3, especie:16, dif:4, etapa:4, escIdx:8, desbloq:8, nivel:128, puntos:32768 };
+/* Formato v2: el escenario y los desbloqueados pasan de 3 a 4 bits para que
+   entren los 10 territorios. Los 9 caracteres ya estaban al tope, asi que el
+   espacio sale de nivel (max 63) y puntos (max 16383), de sobra para el juego.
+   El control cambio de formula a proposito: las claves del formato viejo se
+   rechazan en vez de cargar una partida con datos corridos. */
+const TOPE_CLAVE = { ranura:3, especie:16, dif:4, etapa:4, escIdx:16, desbloq:16, nivel:64, puntos:16384 };
 
 function normalizarClave(txt){
   const s = String(txt || "").toUpperCase();
@@ -3303,7 +3396,7 @@ function normalizarClave(txt){
 }
 function _controlClave(n){
   let s = 0, v = n;
-  for (let i=0;i<8;i++){ s = (s + (v % 32) * (i*7 + 3)) % 127; v = Math.floor(v/32); }
+  for (let i=0;i<8;i++){ s = (s + (v % 32) * (i*9 + 5) + 11) % 127; v = Math.floor(v/32); }
   return s;
 }
 function crearClave(d){
@@ -3314,7 +3407,7 @@ function crearClave(d){
     return v;
   };
   let n = g("ranura") + g("especie")*4 + g("dif")*64 + g("etapa")*256 +
-          g("escIdx")*1024 + g("desbloq")*8192 + g("nivel")*65536 + g("puntos")*8388608;
+          g("escIdx")*1024 + g("desbloq")*16384 + g("nivel")*262144 + g("puntos")*16777216;
   let total = n*128 + _controlClave(n);
   let s = "";
   for (let i=0;i<9;i++){ s = ALFA_CLAVE.charAt(total % 32) + s; total = Math.floor(total/32); }
@@ -3333,16 +3426,17 @@ function leerClave(txt){
   if (_controlClave(n) !== chk) return null;
   const sacar = (div, mod) => Math.floor(n/div) % mod;
   const d = { ranura:sacar(1,4), especie:sacar(4,16), dif:sacar(64,4), etapa:sacar(256,4),
-              escIdx:sacar(1024,8), desbloq:sacar(8192,8), nivel:sacar(65536,128), puntos:sacar(8388608,32768) };
+              escIdx:sacar(1024,16), desbloq:sacar(16384,16), nivel:sacar(262144,64), puntos:sacar(16777216,16384) };
+  const NESC = ESCENARIOS.length;
   if (d.ranura > 2 || d.especie > 8 || d.dif > 2 || d.etapa > 3) return null;
-  if (d.escIdx > 4 || d.desbloq < 1 || d.desbloq > 5) return null;
+  if (d.escIdx > NESC-1 || d.desbloq < 1 || d.desbloq > NESC) return null;
   if (d.nivel < 1 || d.escIdx >= d.desbloq) return null;
   return d;
 }
 function claveDeAhora(ranura){
   return crearClave({ ranura:ranura, especie:Math.max(0, ESPECIE_LISTA.indexOf(dino.id)),
     dif:dif, etapa:etapa, escIdx:escIdx, desbloq:desbloqueados, nivel:nivel,
-    puntos:Math.min(32767, puntos) });
+    puntos:Math.min(16383, puntos) });
 }
 function cargarPartida(d){
   dino.id = ESPECIE_LISTA[d.especie] || ESPECIE_LISTA[0];
@@ -3430,6 +3524,7 @@ const pInicio = document.getElementById("inicio");
 const pEleccion = document.getElementById("eleccion");
 const pPausa = document.getElementById("pausa");
 const pTerr = document.getElementById("territorio");
+const pCartel = document.getElementById("cartel");
 const pFinal = document.getElementById("final");
 const pGuardar = document.getElementById("guardar");
 const pClave = document.getElementById("clave");
@@ -3484,6 +3579,7 @@ function atras(){
   else if (estado === "eleccion"){ estado = "inicio"; irA(pInicio); }
   else if (estado === "guardar"){ estado = "pausa"; irA(pPausa); }
   else if (estado === "clave"){ estado = "inicio"; irA(pInicio); }
+  else if (estado === "cartel") cerrarCartel();
 }
 
 function retrato(id, cv){
@@ -3533,7 +3629,7 @@ function construirEleccion(){
   ORDEN_CARN.forEach(id => lc.appendChild(tarjeta(id)));
 }
 function irA(p, idx){
-  [pInicio,pEleccion,pPausa,pTerr,pGuardar,pClave,pFinal].forEach(x => x.classList.add("oculta"));
+  [pInicio,pEleccion,pPausa,pTerr,pGuardar,pClave,pFinal,pCartel].forEach(x => x.classList.add("oculta"));
   document.body.classList.toggle("enMenu", !!p);
   if (p){ p.classList.remove("oculta"); enfocarPantalla(p, idx); }
   else foco.lista = [];
@@ -3555,9 +3651,19 @@ function rotarDificultad(){
   aviso("Dificultad " + D().nombre.toLowerCase());
 }
 function empezarPartida(){
-  dino.id = seleccion; partidaNueva(); irA(null);
-  estado = "eclosion"; tiempoEclosion = 0;
-  iniciarMusica();
+  dino.id = seleccion; partidaNueva();
+  const c = cfg(), carn = c.dieta === "carnivoro";
+  cartel("Sos un " + c.nombre,
+    "Acabás de romper el cascarón en la <b>Jungla Jurásica</b>: sos una cría chiquita y estás solo.<br><br>" +
+    "Comé " + (carn ? "lagartos, peces, carroña y mamíferos" : "helechos, frutos y cícadas") +
+    " para llenar la barra de <b>HAMBRE</b>, y tomá agua del río o de los charcos para la <b>SED</b>. " +
+    "Si alguna de las dos llega a cero vas perdiendo puntos.<br><br>" +
+    "Cada bocado suma puntos; con los puntos <b>crecés</b> y se abren <b>pasadizos</b> a territorios nuevos. " +
+    "Escapá de los depredadores: si te atrapan volvés a la cueva y perdés puntos.<br><br>" +
+    "Cuando llegues a <b>adulto</b> vas a buscar pareja y a cuidar tu propio huevo hasta que nazca la cría. " +
+    "Ese es el final del juego.",
+    "¡EMPEZAR!",
+    function(){ irA(null); estado = "eclosion"; tiempoEclosion = 0; iniciarMusica(); });
 }
 function pausar(activo){
   if (activo && estado === "jugando"){
@@ -3570,6 +3676,32 @@ function pausar(activo){
     estado = "jugando"; anterior = performance.now(); irA(null);
   }
 }
+/* =======================================================
+   Carteles: avisos importantes que congelan el juego y
+   esperan a que el jugador toque CONTINUAR.
+   ======================================================= */
+let colaCarteles = [], estadoTrasCartel = "jugando";
+function cartel(titulo, texto, etiqueta, alCerrar){
+  colaCarteles.push({ titulo:titulo, texto:texto,
+                      etiqueta:etiqueta || "CONTINUAR", alCerrar:alCerrar || null });
+  if (estado !== "cartel"){ estadoTrasCartel = estado; estado = "cartel"; }
+  if (colaCarteles.length === 1) pintarCartel();
+}
+function pintarCartel(){
+  const c = colaCarteles[0];
+  if (!c) return;
+  document.getElementById("cartelTitulo").textContent = c.titulo;
+  document.getElementById("cartelTexto").innerHTML = c.texto;
+  document.getElementById("btnCartel").textContent = c.etiqueta;
+  irA(pCartel);
+}
+function cerrarCartel(){
+  const c = colaCarteles.shift();
+  if (c && c.alCerrar){ colaCarteles = []; estado = estadoTrasCartel; c.alCerrar(); return; }
+  if (colaCarteles.length){ pintarCartel(); return; }
+  estado = estadoTrasCartel; irA(null);
+  if (estado === "jugando") anterior = performance.now();
+}
 function irAEleccion(){
   abrirAudio(); construirEleccion(); estado = "eleccion";
   const orden = ORDEN_HERB.concat(ORDEN_CARN);
@@ -3578,6 +3710,7 @@ function irAEleccion(){
 document.getElementById("btnElegir").addEventListener("click", irAEleccion);
 document.getElementById("btnCambiar").addEventListener("click", irAEleccion);
 document.getElementById("btnSeguir").addEventListener("click", () => pausar(false));
+document.getElementById("btnCartel").addEventListener("click", cerrarCartel);
 document.getElementById("btnSeguirTerr").addEventListener("click", () => {
   irA(null); estado = "jugando"; anterior = performance.now();
   aviso("Bienvenido a " + esc.nombre);
