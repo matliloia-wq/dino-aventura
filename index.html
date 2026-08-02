@@ -1699,7 +1699,12 @@ const PUNTOS_NIVEL = 130;
 // recarga de la defensa: lentisima de juvenil y cada vez mas rapida al crecer.
 // la cria no tiene defensa todavia.
 const RECARGA_ETAPA = [0, 20, 12, 6.5];
-const recargaMax = () => (RECARGA_ETAPA[etapa] || RECARGA_ETAPA[1]) * D().recarga;
+// especies cuya defensa no aturde a los depredadores
+const SIN_ATURDIR = ["anquilosaurio", "velociraptor", "espinosaurio", "dilofosaurio"];
+// defendiendo el nido la defensa recarga casi al doble: sin esto quedaban
+// 5,5 s indefenso en cada ciclo y no habia forma de sostener el huevo.
+const recargaMax = () => (RECARGA_ETAPA[etapa] || RECARGA_ETAPA[1]) * D().recarga
+                         * (mision === "anidar" ? .55 : 1);
 const cfg = () => ESPECIES[dino.id];
 const D = () => DIFICULTADES[dif];
 const escalaDino = () => ETAPAS[etapa].esc * TALLA[dino.id];
@@ -2140,7 +2145,7 @@ function colocarPareja(){
 }
 function ponerHuevo(){
   mision = "anidar";
-  nido = { progreso:0, integridad:100, roto:0 };
+  nido = { progreso:0, integridad:100, roto:0, espanta:9 };
   pareja.sigue = false;
   pareja.x = NIDO.x - 76; pareja.y = NIDO.y + 16;
   aviso("¡Pusiste un huevo! Defiéndelo hasta que nazca");
@@ -2187,19 +2192,40 @@ function actualizarMision(dt){
   if (mision === "anidar" && nido){
     if (nido.roto > 0){ nido.roto -= dt; return; }
     nido.progreso += dt/INCUBA;
-    let mordiendo = 0;
+    /* Con seis depredadores encima el huevo reventaba en menos de un segundo:
+       ahora solo muerden los DOS mas cercanos, el resto ronda pero no daña. */
+    let cerca = 0;
     for (const p of depredadores){
       if (p.aturdido > 0) continue;
       if (p.clase === "aire" && p.altura > 70) continue;
-      if (d2(p.x, p.y, NIDO.x, NIDO.y) < 96*96) mordiendo++;
+      if (d2(p.x, p.y, NIDO.x, NIDO.y) < 96*96) cerca++;
+    }
+    const mordiendo = Math.min(2, cerca);
+    // tu pareja tambien defiende: cada 9 s espanta a los que rondan el nido
+    if (typeof nido.espanta !== "number") nido.espanta = 9;
+    nido.espanta -= dt;
+    if (pareja && nido.espanta <= 0){
+      nido.espanta = 9;
+      let n = 0;
+      for (const p of depredadores){
+        if (d2(p.x, p.y, NIDO.x, NIDO.y) < 260*260){
+          const d = Math.hypot(p.x-NIDO.x, p.y-NIDO.y) || 1;
+          p.x += (p.x-NIDO.x)/d*130; p.y += (p.y-NIDO.y)/d*130;
+          p.aturdido = 1.8; p.cazando = false; n++;
+        }
+      }
+      if (n){ chispas(pareja.x, pareja.y-30, "#FFD9E4", 12, 170); aviso("¡Tu pareja los espantó!"); }
     }
     if (mordiendo){
-      nido.integridad -= 13*mordiendo*dt*D().gasto;
+      // montar guardia junto al huevo ahora sirve de algo: la mitad de daño
+      const guardia = d2(dino.x, dino.y, NIDO.x, NIDO.y) < 220*220 ? .5 : 1;
+      nido.integridad -= 13*mordiendo*dt*D().gasto*guardia;
       if (!reduce) sacudida = Math.max(sacudida, 5);
       if (azar() < dt*3) chispas(NIDO.x, NIDO.y-16, "#E0C88A", 5, 90);
-    } else if (nido.integridad < 100) nido.integridad = Math.min(100, nido.integridad + 3.5*dt);
+    } else if (nido.integridad < 100) nido.integridad = Math.min(100, nido.integridad + 8*dt);
     if (nido.integridad <= 0){
-      nido.integridad = 100; nido.progreso = 0; nido.roto = 4;
+      // perder 80 s de incubacion de golpe desmoralizaba: se conserva la mitad
+      nido.integridad = 100; nido.progreso = Math.max(0, nido.progreso*.5); nido.roto = 4;
       empujon(520, 3.2);                       // tu pareja los espanta
       aviso("¡Se rompió el huevo! Tu pareja pondrá otro");
       sMal();
@@ -2261,6 +2287,23 @@ function usarDefensa(){
     if (mejor){ mejor.ciego = 4; mejor.cazando = false;
       chispas(mejor.x, mejor.y-40, "#B7E04A", 16, 150); aviso("¡Escupitajo certero!"); }
     else aviso("No hay nadie cerca");
+  }
+  /* Anquilosaurio, velociraptor, espinosaurio y dilofosaurio no alejan a nadie:
+     su defensa los protege a ellos, no al huevo. Mientras cuidan el nido su
+     defensa empuja ademas a los que estan mordiendolo, para que las nueve
+     especies puedan terminar el juego. */
+  if (SIN_ATURDIR.indexOf(id) >= 0 && mision === "anidar" && nido && nido.roto <= 0
+      && d2(dino.x, dino.y, NIDO.x, NIDO.y) < 320*320){
+    let n = 0;
+    for (const p of depredadores){
+      if (d2(p.x, p.y, NIDO.x, NIDO.y) < 240*240){
+        const d = Math.hypot(p.x-NIDO.x, p.y-NIDO.y) || 1;
+        p.x += (p.x-NIDO.x)/d*140; p.y += (p.y-NIDO.y)/d*140;
+        p.aturdido = 2.2; p.cazando = false; n++;
+      }
+    }
+    chispas(NIDO.x, NIDO.y-16, "#FFE08A", 14, 190);
+    if (n) aviso("¡Alejaste " + n + " del nido!");
   }
 }
 
