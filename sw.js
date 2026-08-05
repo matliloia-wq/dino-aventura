@@ -1,11 +1,12 @@
 /* Dino Aventura - Service Worker
    Sube la version (v1 -> v2) cada vez que actualices index.html
    para que el juego se refresque en los dispositivos ya instalados. */
-const CACHE = 'dino-aventura-v4';
+const CACHE = 'dino-aventura-v6';
 
 const ASSETS = [
   './',
   './index.html',
+  './tv.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
